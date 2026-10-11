@@ -1,0 +1,60 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in &middot; emQube Content Publisher</title>
+<link rel="icon" href="assets/emqube-logo-black.svg">
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<div class="auth">
+  <div class="auth-side">
+    <img src="assets/emqube-logo-white.svg" alt="emQube">
+    <h2>One document in.<br><em>Every site out.</em></h2>
+    <p style="max-width:42ch">The emQube publishing tool takes a single Word file, confirms it follows the house template,
+       splits it into articles, and publishes each one to the right client sites - with a record of
+       who approved what and exactly what shipped.</p>
+    <ul>
+      <li><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4 6.4 11.8 13 4.2"/></svg> Structure is verified before anything is written</li>
+      <li><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4 6.4 11.8 13 4.2"/></svg> One upload can fan out to several client sites</li>
+      <li><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4 6.4 11.8 13 4.2"/></svg> Partial failures are listed, never silently swallowed</li>
+      <li><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4 6.4 11.8 13 4.2"/></svg> Every article keeps its own approvals and versions</li>
+    </ul>
+    <div class="auth-foot">emqube.com &middot; internal tool</div>
+  </div>
+
+  <div class="auth-card">
+    <div class="auth-form">
+      <h1>Sign in to emQube</h1>
+      <p>Use your emQube workspace account.</p>
+
+      <a class="btn btn-sso btn-lg" href="documents.html" style="justify-content:flex-start">
+        <svg class="ms-mark" viewBox="0 0 23 23" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="12" y="1" width="10" height="9" fill="#7fba00"/><rect x="1" y="12" width="9" height="10" fill="#00a4ef"/><rect x="12" y="12" width="10" height="10" fill="#ffb900"/></svg> <span style="margin-left:6px">Continue with Microsoft</span>
+      </a>
+
+      <div class="divider">or</div>
+
+      <form action="documents.html" method="get" onsubmit="window.location.href='documents.html'; return false;">
+        <div class="field">
+          <label for="email">Work email</label>
+          <input class="input" type="email" id="email" value="aisha@emqube.com" autocomplete="username">
+        </div>
+        <div class="field">
+          <label for="pw">Password</label>
+          <input class="input" type="password" id="pw" value="password" autocomplete="current-password">
+        </div>
+        <div class="row" style="margin-bottom:18px">
+          <label class="checkline"><input type="checkbox" checked> Keep me signed in</label>
+          <a class="small" href="login.html" style="margin-left:auto">Forgot password?</a>
+        </div>
+        <button class="btn btn-primary btn-lg" type="submit" style="width:100%">Sign in</button>
+      </form>
+
+      
+    </div>
+  </div>
+</div>
+</body>
+</html>

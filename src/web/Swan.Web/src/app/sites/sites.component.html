@@ -1,0 +1,83 @@
+<div class="phead">
+  <div class="grow">
+    <h1>Sites</h1>
+    <p>Connected WordPress sites. Test a connection before writing anything to a site.</p>
+  </div>
+</div>
+
+@if (loadError(); as err) {
+  <div class="alert alert-danger" style="margin-bottom:20px"><p style="margin:0">Could not load sites: {{ err }}</p></div>
+}
+
+<div class="card">
+  <table class="tbl">
+    <thead>
+      <tr><th>Site</th><th>Post type</th><th>REST base</th><th>Connection</th><th class="right">Actions</th></tr>
+    </thead>
+    <tbody>
+      @for (site of sites(); track site.id) {
+        @let st = stateOf(site.id);
+        @let health = healthOf(site);
+        <tr>
+          <td>
+            <div class="strong">{{ site.name }}</div>
+            <div class="xs muted">{{ host(site) }}</div>
+          </td>
+          <td><span class="chip chip-neutral">{{ site.postTypeKey }}</span></td>
+          <td><span class="chip chip-neutral">{{ site.restBase }}</span></td>
+          <td><span class="chip {{ health.cls }}"><span class="dot"></span>{{ health.label }}</span></td>
+          <td class="right nowrap">
+            <button class="btn btn-sm" type="button" [disabled]="st.testing" (click)="runConnectionTest(site)">
+              {{ st.testing ? 'Testing...' : 'Test connection' }}
+            </button>
+            <button class="btn btn-primary btn-sm" type="button" [disabled]="st.drafting" (click)="createTestDraft(site)">
+              {{ st.drafting ? 'Creating...' : 'Create test draft' }}
+            </button>
+          </td>
+        </tr>
+        @if (st.report; as r) {
+          <tr>
+            <td colspan="5" style="background:var(--n-050)">
+              <div class="alert {{ r.passed ? 'alert-ok' : 'alert-danger' }}" style="margin-bottom:8px">
+                <p style="margin:0"><strong>Connection test {{ r.passed ? 'passed' : 'failed' }}</strong></p>
+              </div>
+              <ul class="checks">
+                @for (c of r.checks; track c.name) {
+                  <li>
+                    <svg class="ico {{ c.passed ? 'good' : 'bad' }}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      @if (c.passed) { <path d="M3 8.4 6.4 11.8 13 4.2"/> } @else { <path d="M4 4l8 8M12 4l-8 8"/> }
+                    </svg>
+                    <div>
+                      <div class="t">{{ c.name }}</div>
+                      <div class="d">{{ c.detail }}</div>
+                    </div>
+                  </li>
+                }
+              </ul>
+            </td>
+          </tr>
+        }
+        @if (st.reportError; as err) {
+          <tr><td colspan="5"><div class="alert alert-danger"><p style="margin:0">Connection test could not run: {{ err }}</p></div></td></tr>
+        }
+        @if (st.draft; as d) {
+          <tr>
+            <td colspan="5">
+              <div class="alert alert-ok">
+                <p style="margin:0">Draft created (status <strong>{{ d.status }}</strong>, id {{ d.remoteId }}).
+                  @if (d.editUrl) { <a [href]="d.editUrl" target="_blank" rel="noopener">Open in WordPress admin</a> }</p>
+              </div>
+            </td>
+          </tr>
+        }
+        @if (st.draftError; as err) {
+          <tr><td colspan="5"><div class="alert alert-danger"><p style="margin:0">Draft was not created: {{ err }}</p></div></td></tr>
+        }
+      } @empty {
+        @if (!loadError()) {
+          <tr><td colspan="5" class="empty">No sites configured. Add one under "Sites" in src/Swan.Api/appsettings.json.</td></tr>
+        }
+      }
+    </tbody>
+  </table>
+</div>

@@ -1,0 +1,196 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Edit article &middot; emQube Content Publisher</title>
+<link rel="icon" href="assets/emqube-logo-black.svg">
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<div class="app">
+  <nav class="nav" aria-label="Main">
+    <div class="nav-brand">
+      <img src="assets/emqube-logo-white.svg" alt="emQube">
+      <div>
+      </div>
+    </div>
+
+      <div class="nav-sec">Workspace</div>
+      <a href="documents.html"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 1.8H4.2A1.2 1.2 0 0 0 3 3v10a1.2 1.2 0 0 0 1.2 1.2h7.6A1.2 1.2 0 0 0 13 13V5.8z"/><path d="M9 1.8V5.8h4"/></svg><span>Documents</span><span class="nav-badge">2</span></a>
+      <a href="articles.html" class="on"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.6 14.4 5 8 8.4 1.6 5z"/><path d="M1.6 8 8 11.4 14.4 8"/><path d="M1.6 11 8 14.4 14.4 11"/></svg><span>Articles</span></a>
+      <div class="nav-sec">Publishing</div>
+      <a href="review.html"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.6 13.4 3.6V8c0 3-2.3 5.5-5.4 6.4C4.9 13.5 2.6 11 2.6 8V3.6z"/><path d="M5.8 7.9 7.4 9.5l3-3.2"/></svg><span>Review queue</span><span class="nav-badge">3</span></a>
+      <a href="publications.html"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.4 1.6 1.6 6.8l5 1.9 1.9 5z"/><path d="M14.4 1.6 6.6 8.7"/></svg><span>Publications</span></a>
+      <a href="publishing-failures.html"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.9 15 13.4H1z"/><path d="M8 6.2v3.4"/><circle cx="8" cy="11.5" r=".7" fill="currentColor" stroke="none"/></svg><span>Failures</span><span class="nav-badge">4</span></a>
+      <div class="nav-sec">Clients</div>
+      <a href="sites.html"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.1"/><path d="M1.9 8h12.2"/><path d="M8 1.9c1.9 2.2 1.9 9 0 12.2M8 1.9c-1.9 2.2-1.9 9 0 12.2"/></svg><span>Sites</span></a>
+      <div class="nav-sec">Settings</div>
+      <a href="settings-team.html"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.8 14v-1.4a2.8 2.8 0 0 0-2.8-2.8H4.4a2.8 2.8 0 0 0-2.8 2.8V14"/><circle cx="6.2" cy="5.2" r="2.4"/><path d="M13.4 14v-1.4a2.8 2.8 0 0 0-2.1-2.7M10.2 3a2.4 2.4 0 0 1 0 4.6"/></svg><span>Team</span></a>
+      <a href="settings-workspace.html"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M12.9 9.8a1.1 1.1 0 0 0 .22 1.21l.04.04a1.33 1.33 0 1 1-1.88 1.88l-.04-.04a1.1 1.1 0 0 0-1.21-.22 1.1 1.1 0 0 0-.67 1v.11a1.33 1.33 0 0 1-2.66 0v-.06a1.1 1.1 0 0 0-.72-1 1.1 1.1 0 0 0-1.21.22l-.04.04A1.33 1.33 0 1 1 2.85 11.1l.04-.04a1.1 1.1 0 0 0 .22-1.21 1.1 1.1 0 0 0-1-.67h-.11a1.33 1.33 0 0 1 0-2.66h.06a1.1 1.1 0 0 0 1-.72 1.1 1.1 0 0 0-.22-1.21l-.04-.04A1.33 1.33 0 1 1 4.68 2.67l.04.04a1.1 1.1 0 0 0 1.21.22h.05a1.1 1.1 0 0 0 .67-1v-.11a1.33 1.33 0 0 1 2.66 0v.06a1.1 1.1 0 0 0 .67 1 1.1 1.1 0 0 0 1.21-.22l.04-.04a1.33 1.33 0 1 1 1.88 1.88l-.04.04a1.1 1.1 0 0 0-.22 1.21v.05a1.1 1.1 0 0 0 1 .67h.11a1.33 1.33 0 0 1 0 2.66h-.06a1.1 1.1 0 0 0-1 .67z"/></svg><span>Workspace</span></a>
+    <div class="nav-foot">Prototype &middot; mock data<br>Brand: emqube.com</div>
+  </nav>
+  <div>
+    <header class="topbar">
+      <form class="search" action="search.html" method="get">
+        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="4.6"/><path d="M10.5 10.5 14 14"/></svg>
+        <input type="search" name="q" placeholder="Search articles, sites, deployments&hellip;" aria-label="Search">
+        <kbd>/</kbd>
+      </form>
+      <div class="row-tight" style="margin-left:auto">
+        <a class="btn btn-ghost btn-sm" href="first-run.html"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.9 1.4 2.9 9.1h4.4l-.6 5.5 6-7.7H8.3z"/></svg> Get started</a>
+        <span class="avatar" title="Aisha Rahman">AR</span>
+        <a class="btn btn-ghost btn-sm" href="login.html" title="Sign out"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.2 14H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h5.2"/><path d="M11.4 8H6"/><path d="M9 5.2 11.8 8 9 10.8"/></svg></a>
+      </div>
+    </header>
+    <div class="ctxbar">
+      <label for="ctx-client">Client</label>
+      <span class="ctx" id="ctx-client"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="5.4" r="2.9"/><path d="M2.8 14a5.2 5.2 0 0 1 10.4 0"/></svg> E-Movers International</span>
+      <label for="ctx-site">Site</label>
+      <span class="ctx" id="ctx-site"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.1"/><path d="M1.9 8h12.2"/><path d="M8 1.9c1.9 2.2 1.9 9 0 12.2M8 1.9c-1.9 2.2-1.9 9 0 12.2"/></svg> All sites (9)</span>
+      <span class="muted xs" style="margin-left:auto">Client and site stay selected until you change them</span>
+    </div>
+    <main>
+      <div class="crumbs"><a href="articles.html">Articles</a><span class="sep">/</span>What is Relocation Stress Syndrome</div>
+      <div class="phead">
+  <div class="grow">
+    <div class="row-tight"><h1 style="font-size:22px">What is Relocation Stress Syndrome: Why Moving Feels So Overwhelming</h1></div>
+    <p>Article 2 of 4 &middot; 618 words &middot; last saved 2 minutes ago</p>
+  </div>
+  <div class="phead-acts">
+    <a class="btn" href="articles.html">Back</a>
+    <a class="btn" href="article-seo.html">SEO &amp; image</a>
+    <a class="btn btn-primary" href="review.html">Send for approval</a>
+  </div>
+</div>
+
+<div class="split">
+  <div>
+    
+
+    <div class="ed">
+      <div class="ed-h">
+        <span class="chip chip-neutral">Article label</span>
+        <span class="strong small">Health &amp; Wellness</span>
+        <span class="grow"></span>
+        <button class="btn btn-sm btn-ghost">Change</button>
+      </div>
+    </div>
+
+    <div class="ed" style="margin-top:12px">
+      <div class="ed-h"><span class="lvl mono">Heading 1</span>
+        <span class="grow"></span>
+        <button class="btn btn-sm btn-ghost">Edit style</button></div>
+      <div class="ed-b">
+        <div class="contenteditable" style="font-size:19px;font-weight:600;line-height:1.3;color:var(--text-strong)">What is Relocation Stress Syndrome: Why Moving Feels So Overwhelming</div>
+        <div class="row-tight" style="margin-top:8px">
+          <span class="muted xs">76 characters</span>
+          <span class="chip chip-warn" style="margin-left:auto">Longer than 60</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ed" style="margin-top:12px">
+      <div class="ed-h"><span class="lvl mono">body</span>
+        <span class="grow"></span>
+        <span class="muted xs">4 paragraphs</span></div>
+      <div class="ed-b">
+        <p>Upgrading your home is supposed to be a joyful milestone. Whether you are moving to a luxury
+        villa or a compact studio, the excitement is often quickly followed by a strange sense of dread.</p>
+        <p>This hesitation is not mere procrastination. Medical science confirms that moving triggers a
+        distinct, measurable physiological response in the body.</p>
+      </div>
+    </div>
+
+    <div class="ed" style="margin-top:12px">
+      <div class="ed-h"><span class="lvl mono">Heading 2</span>
+        <span class="strong small">The Clinical Reality of Relocation Stress</span>
+        <span class="grow"></span>
+        <button class="btn btn-sm btn-ghost">Edit style</button></div>
+      <div class="ed-b">
+        <p>Relocation Stress Syndrome was formally recognized as a clinical diagnosis by the North
+        American Academy of Psychiatry. Studies by researchers Kao, Travis, and Acton (2004)
+        demonstrated that moving frequently triggers measurable psychological strain.</p>
+      </div>
+    </div>
+
+    <div class="ed" style="margin-top:12px">
+      <div class="ed-h"><span class="lvl mono">Heading 2</span>
+        <span class="strong small">Why the Moving Process Exhausts the Brain</span>
+        <span class="grow"></span>
+        <button class="btn btn-sm btn-ghost">Edit style</button></div>
+    </div>
+
+    <div class="ed" style="margin-top:12px">
+      <div class="ed-h"><span class="lvl mono">List Paragraph</span>
+        <span class="muted small">3 items</span>
+        <span class="grow"></span>
+        <button class="btn btn-sm btn-ghost">Edit style</button></div>
+      <div class="ed-b">
+        <ul>
+          <li><strong>Empathetic and Specialized Staffing:</strong> For feminine attire, personal items,
+              and delicate keepsakes, our teams are trained to handle what general movers will not.</li>
+          <li><strong>Complete Technical Relief:</strong> Our trained handyman movers manage the heavy
+              lifting, furniture disassembly, and reassembly.</li>
+          <li><strong>Verified Quality Standards:</strong> As a proudly FIDI accredited international
+              mover, our audited operations meet global benchmarks.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="ed" style="margin-top:12px">
+      <div class="ed-h"><span class="lvl mono">Article CTA</span>
+        <span class="grow"></span>
+        <span class="muted xs">rendered as a button, not body copy</span></div>
+      <div class="ed-b">
+        <p>Ready to experience a calm, seamless move? Request a Proposal today or call us at 800-Emovers.</p>
+        <a class="btn btn-primary btn-sm" href="#">Request a Proposal</a>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-h"><h3>Outline</h3></div>
+      <div class="card-b">
+        <ul class="outline">
+          <li><span class="grip"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="4" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="4" r=".9" fill="currentColor" stroke="none"/><circle cx="6" cy="8" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="8" r=".9" fill="currentColor" stroke="none"/><circle cx="6" cy="12" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="12" r=".9" fill="currentColor" stroke="none"/></svg></span><span class="lvl">H1</span><span class="l-1">What is Relocation Stress&hellip;</span></li>
+          <li><span class="grip"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="4" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="4" r=".9" fill="currentColor" stroke="none"/><circle cx="6" cy="8" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="8" r=".9" fill="currentColor" stroke="none"/><circle cx="6" cy="12" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="12" r=".9" fill="currentColor" stroke="none"/></svg></span><span class="lvl">body</span><span class="l-2">Intro (2 paragraphs)</span></li>
+          <li><span class="grip"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="4" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="4" r=".9" fill="currentColor" stroke="none"/><circle cx="6" cy="8" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="8" r=".9" fill="currentColor" stroke="none"/><circle cx="6" cy="12" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="12" r=".9" fill="currentColor" stroke="none"/></svg></span><span class="lvl">H2</span><span class="l-1">The Clinical Reality&hellip;</span></li>
+          <li><span class="grip"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="4" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="4" r=".9" fill="currentColor" stroke="none"/><circle cx="6" cy="8" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="8" r=".9" fill="currentColor" stroke="none"/><circle cx="6" cy="12" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="12" r=".9" fill="currentColor" stroke="none"/></svg></span><span class="lvl">H2</span><span class="l-1">Why the Moving Process&hellip;</span></li>
+          <li><span class="grip"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="4" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="4" r=".9" fill="currentColor" stroke="none"/><circle cx="6" cy="8" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="8" r=".9" fill="currentColor" stroke="none"/><circle cx="6" cy="12" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="12" r=".9" fill="currentColor" stroke="none"/></svg></span><span class="lvl">H2</span><span class="l-1">Defeat Relocation Stress&hellip;</span></li>
+          <li><span class="grip"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="4" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="4" r=".9" fill="currentColor" stroke="none"/><circle cx="6" cy="8" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="8" r=".9" fill="currentColor" stroke="none"/><circle cx="6" cy="12" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="12" r=".9" fill="currentColor" stroke="none"/></svg></span><span class="lvl">list</span><span class="l-2">3 service pillars</span></li>
+          <li><span class="grip"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="4" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="4" r=".9" fill="currentColor" stroke="none"/><circle cx="6" cy="8" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="8" r=".9" fill="currentColor" stroke="none"/><circle cx="6" cy="12" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="12" r=".9" fill="currentColor" stroke="none"/></svg></span><span class="lvl">CTA</span><span class="l-2">Request a Proposal</span></li>
+        </ul>
+        
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-h"><h3>Readability</h3></div>
+      <table class="tbl">
+        <tbody>
+          <tr><td>Words</td><td class="right strong">618</td></tr>
+          <tr><td>Reading time</td><td class="right strong">3 min</td></tr>
+          <tr><td>Grade level</td><td class="right strong">Grade 11</td></tr>
+          <tr><td>Passive sentences</td><td class="right strong">4</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-b">
+        <h3 style="font-size:15px;margin-bottom:8px">Editorial note</h3>
+        <p class="small muted" style="margin:0">The original paragraph 10 note
+        (<em>"(Video could be IIM A campus)"</em>) was on article 1 and has already been removed. If an
+        author leaves a note like this in again, it is flagged here rather than published.</p>
+      </div>
+    </div>
+  </div>
+</div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

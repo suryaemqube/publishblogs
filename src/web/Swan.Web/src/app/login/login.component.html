@@ -1,0 +1,46 @@
+<div class="auth">
+  <div class="auth-side">
+    <img src="assets/emqube-logo-white.svg" alt="emQube">
+    <h2>One document in.<br><em>Every site out.</em></h2>
+    <p style="max-width:42ch">The emQube publishing tool takes a single Word file, confirms it follows the house template,
+       splits it into articles, and publishes each one to the right client sites - with a record of
+       who approved what and exactly what shipped.</p>
+    <ul>
+      <li><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4 6.4 11.8 13 4.2"/></svg> Structure is verified before anything is written</li>
+      <li><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4 6.4 11.8 13 4.2"/></svg> One upload can fan out to several client sites</li>
+      <li><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4 6.4 11.8 13 4.2"/></svg> Partial failures are listed, never silently swallowed</li>
+      <li><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.4 6.4 11.8 13 4.2"/></svg> Every article keeps its own approvals and versions</li>
+    </ul>
+    <div class="auth-foot">emqube.com &middot; internal tool</div>
+  </div>
+
+  <div class="auth-card">
+    <div class="auth-form">
+      <h1>Sign in to emQube</h1>
+      <p>Use your emQube workspace account.</p>
+
+      @if (expired) {
+        <div class="alert alert-info" style="margin-bottom:16px"><p style="margin:0">Your session has ended. Sign in again.</p></div>
+      }
+
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <div class="field">
+          <label for="email">Work email</label>
+          <input class="input" type="email" id="email" formControlName="email" autocomplete="username">
+        </div>
+        <div class="field">
+          <label for="pw">Password</label>
+          <input class="input" type="password" id="pw" formControlName="password" autocomplete="current-password">
+        </div>
+
+        @if (error(); as err) {
+          <div class="alert alert-danger" role="alert" style="margin-bottom:16px"><p style="margin:0">{{ err }}</p></div>
+        }
+
+        <button class="btn btn-primary btn-lg" type="submit" style="width:100%" [disabled]="form.invalid || busy()">
+          {{ busy() ? 'Signing in...' : 'Sign in' }}
+        </button>
+      </form>
+    </div>
+  </div>
+</div>

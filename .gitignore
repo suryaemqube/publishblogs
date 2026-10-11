@@ -1,0 +1,39 @@
+# --- Secrets: never commit ---
+creds.txt
+*.creds
+*.secret
+*.secrets.json
+appsettings.Local.json
+.env
+.env.*
+!.env.example
+secrets/
+
+# --- .NET ---
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+*.DotSettings.user
+
+# --- Angular / Node ---
+node_modules/
+dist/
+.angular/
+*.log
+npm-debug.log*
+
+# --- OS / editor ---
+Thumbs.db
+Desktop.ini
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# --- Local data (SQLite) ---
+*.db
+*.db-shm
+*.db-wal
