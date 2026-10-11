@@ -1,0 +1,90 @@
+<div class="phead">
+  <div class="grow">
+    <h1>Documents</h1>
+    <p>Upload a Word file in the house template. Each article in it is checked, then proposed for review.</p>
+  </div>
+  <div class="phead-acts">
+    <button class="btn" type="button" (click)="downloadTemplate()">Download template</button>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px">
+  <div class="card-b">
+    <div class="row" style="flex-wrap:wrap">
+      <input type="file" accept=".docx" (change)="onFileChosen($event)" aria-label="Choose a .docx file" />
+      @if (canOverride) {
+        <label class="checkline">
+          <input type="checkbox" [checked]="importAnyway()" (change)="importAnyway.set($any($event.target).checked)" />
+          Import anyway (unverified). One article, no split, flagged for full review.
+        </label>
+      }
+      <button class="btn btn-primary" type="button"
+              [disabled]="!selectedFile() || uploading()" (click)="upload()">
+        {{ uploading() ? 'Checking...' : 'Upload and check' }}
+      </button>
+    </div>
+    @if (uploadError(); as err) {
+      <div class="alert alert-danger" style="margin-top:16px" role="alert"><p style="margin:0">{{ err }}</p></div>
+    }
+    @if (result(); as r) {
+      <div style="margin-top:16px">
+        @if (r.status === 'Rejected') {
+          <div class="alert alert-danger">
+            <div>
+              <h3>{{ r.fileName }} does not follow the house template</h3>
+              <ul style="margin:8px 0 0 18px; padding:0">
+                @for (reason of r.report.rejectReasons; track reason) { <li>{{ reason }}</li> }
+              </ul>
+              <p style="margin:8px 0 0">
+                Paragraphs with no style: {{ r.report.unstyledParagraphs.length }} of {{ r.totalParagraphs }}.
+                Start from <a href="#" (click)="$event.preventDefault(); downloadTemplate()">the template</a>.
+              </p>
+            </div>
+          </div>
+        } @else {
+          <div class="alert alert-ok">
+            <div>
+              <h3>{{ r.duplicate ? 'Already uploaded' : 'Checked' }}: {{ r.candidates.length }} article(s) proposed</h3>
+              <p style="margin:4px 0 0">
+                {{ r.status === 'ImportedUnverified' ? 'Imported without the house-style check. Full review required before approval.' : 'Every article follows the house style.' }}
+              </p>
+            </div>
+          </div>
+        }
+        <p style="margin-top:12px">
+          <a [routerLink]="['/documents', r.id]">Open the full report</a>
+        </p>
+      </div>
+    }
+  </div>
+</div>
+
+@if (loadError(); as err) {
+  <div class="alert alert-danger" style="margin-bottom:16px"><p style="margin:0">Could not load documents: {{ err }}</p></div>
+}
+
+<div class="card">
+  <table class="tbl">
+    <thead>
+      <tr><th>File</th><th>Uploaded</th><th>Status</th><th>Articles</th><th class="right">Size</th><th></th></tr>
+    </thead>
+    <tbody>
+      @for (d of documents(); track d.id) {
+        <tr>
+          <td class="strong">{{ d.fileName }}</td>
+          <td class="muted">{{ d.uploadedUtc | date: 'd MMM y, HH:mm' }}</td>
+          <td><span class="chip {{ statusLabel(d.status).cls }}"><span class="dot"></span>{{ statusLabel(d.status).text }}</span></td>
+          <td>{{ d.candidates }}</td>
+          <td class="right muted">{{ (d.fileSizeBytes / 1024) | number: '1.0-0' }} KB</td>
+          <td class="right"><a class="btn btn-sm" [routerLink]="['/documents', d.id]">Open</a></td>
+        </tr>
+      } @empty {
+        @if (!loadError()) {
+          <tr><td colspan="6" class="empty">No documents yet. Upload one above.</td></tr>
+        }
+      }
+    </tbody>
+  </table>
+</div>
+
+

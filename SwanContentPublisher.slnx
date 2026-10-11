@@ -3,11 +3,13 @@
     <Project Path="src/Swan.Adapters.Abstractions/Swan.Adapters.Abstractions.csproj" />
     <Project Path="src/Swan.Adapters.WordPress/Swan.Adapters.WordPress.csproj" />
     <Project Path="src/Swan.Api/Swan.Api.csproj" />
+    <Project Path="src/Swan.Docx/Swan.Docx.csproj" />
     <Project Path="src/Swan.Domain/Swan.Domain.csproj" />
     <Project Path="src/Swan.Infrastructure/Swan.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Swan.Adapters.WordPress.Tests/Swan.Adapters.WordPress.Tests.csproj" />
+    <Project Path="tests/Swan.Docx.Tests/Swan.Docx.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/Swan.Probe/Swan.Probe.csproj" />

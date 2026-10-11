@@ -1,0 +1,116 @@
+@if (error(); as err) {
+  <div class="alert alert-danger"><p style="margin:0">{{ err }}</p></div>
+  <p style="margin-top:12px"><a routerLink="/documents">Back to documents</a></p>
+} @else if (doc(); as d) {
+  <div class="phead">
+    <div class="grow">
+      <p class="crumbs"><a routerLink="/documents">Documents</a> <span class="sep">/</span> {{ d.fileName }}</p>
+      <h1>{{ d.fileName }}</h1>
+      <p>
+        Uploaded {{ d.uploadedUtc | date: 'd MMM y, HH:mm' }} UTC &middot; {{ d.totalParagraphs }} paragraphs
+        <span class="chip {{ statusLabel(d.status).cls }}" style="margin-left:8px"><span class="dot"></span>{{ statusLabel(d.status).text }}</span>
+      </p>
+    </div>
+  </div>
+
+  @if (d.status === 'Rejected') {
+    <div class="alert alert-danger" style="margin-bottom:20px">
+      <div>
+        <h3>Not accepted: the file does not follow the house template</h3>
+        <ul style="margin:8px 0 0 18px; padding:0">
+          @for (r of d.report.rejectReasons; track r) { <li>{{ r }}</li> }
+        </ul>
+      </div>
+    </div>
+  }
+
+  @if (d.status === 'ImportedUnverified') {
+    <div class="alert alert-warn" style="margin-bottom:20px">
+      <div>
+        <h3>Imported without the house-style check</h3>
+        <p style="margin:4px 0 0">The whole file is one article. Nothing was split, and it needs a full review before approval.</p>
+      </div>
+    </div>
+  }
+
+  <div class="split">
+    <div>
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-h"><h2>Proposed articles</h2></div>
+        <div class="card-b" style="padding:0">
+          @if (d.candidates.length === 0) {
+            <div class="empty">No articles were proposed from this file.</div>
+          }
+          @for (a of d.candidates; track a.id) {
+            <div style="border-bottom:1px solid var(--border)">
+              <div class="row" style="padding:14px 20px; cursor:pointer" (click)="toggle(a)">
+                <div class="grow">
+                  <div class="strong">{{ a.index }}. {{ a.title }}</div>
+                  <div class="xs muted">Paragraphs {{ a.paragraphFrom }}&ndash;{{ a.paragraphTo }} &middot; {{ a.wordCount }} words
+                    @if (a.isUnverified) { &middot; <span class="chip chip-warn" style="font-size:11px">unverified</span> }
+                  </div>
+                </div>
+                <button class="btn btn-sm" type="button">{{ openArticle() === a.id ? 'Hide' : 'Preview' }}</button>
+              </div>
+              @if (openArticle() === a.id) {
+                <div class="ed-b" style="padding:0 20px 20px" [innerHTML]="a.contentHtml"></div>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <aside>
+      <div class="card">
+        <div class="card-h"><h2>Conformance report</h2></div>
+        <div class="card-b">
+          <p class="small muted" style="margin-top:0">Structure comes only from the named styles in the house template.</p>
+
+          <h3 style="font-size:14px; margin:12px 0 6px">Paragraphs by style</h3>
+          <table class="tbl">
+            <tbody>
+              @for (s of styleRows(d.report.styleCounts); track s.name) {
+                <tr><td>{{ s.name }}</td><td class="right">{{ s.count }}</td></tr>
+              }
+            </tbody>
+          </table>
+
+          <h3 style="font-size:14px; margin:16px 0 6px">Handling</h3>
+          <ul class="checks">
+            <li><span class="t">Section notes removed</span><span class="d">{{ d.report.notesStripped }}</span></li>
+            <li><span class="t">Section labels removed</span><span class="d">{{ d.report.labelsStripped }}</span></li>
+            <li><span class="t">Template instruction paragraphs excluded</span><span class="d">{{ d.report.templateInstructionParagraphs }}</span></li>
+          </ul>
+
+          @if (d.report.unstyledParagraphs.length > 0) {
+            <h3 style="font-size:14px; margin:16px 0 6px">Unstyled paragraphs</h3>
+            <p class="small muted" style="margin:0 0 6px">{{ d.report.unstyledParagraphs.length }} paragraph(s) have no style.
+              @if (d.report.headingLikeUnstyled.length > 0) {
+                Lines that look like headings (paragraphs {{ d.report.headingLikeUnstyled.join(', ') }}) need the Title or Heading 1 style.
+              }
+            </p>
+          }
+
+          @if (d.report.linkIssues.length > 0) {
+            <h3 style="font-size:14px; margin:16px 0 6px">Links to fix</h3>
+            <ul class="checks">
+              @for (l of d.report.linkIssues; track l.paragraph + l.href) {
+                <li><span class="t">Paragraph {{ l.paragraph }}</span><span class="d">{{ l.problem }}</span></li>
+              }
+            </ul>
+          }
+
+          @if (d.report.warnings.length > 0) {
+            <h3 style="font-size:14px; margin:16px 0 6px">Warnings</h3>
+            <ul class="checks">
+              @for (w of d.report.warnings; track w) { <li><span class="d">{{ w }}</span></li> }
+            </ul>
+          }
+        </div>
+      </div>
+    </aside>
+  </div>
+} @else {
+  <p class="muted">Loading...</p>
+}

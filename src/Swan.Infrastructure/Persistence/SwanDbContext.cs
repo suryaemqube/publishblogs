@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Swan.Domain.Content;
 using Swan.Domain.Identity;
 
 namespace Swan.Infrastructure.Persistence;
@@ -12,6 +13,8 @@ public sealed class SwanDbContext(DbContextOptions<SwanDbContext> options) : DbC
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<ArticleDocument> ArticleDocuments => Set<ArticleDocument>();
+    public DbSet<ArticleCandidate> ArticleCandidates => Set<ArticleCandidate>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -65,6 +68,29 @@ public sealed class SwanDbContext(DbContextOptions<SwanDbContext> options) : DbC
             e.Property(x => x.TokenHash).HasMaxLength(88).IsRequired();
             e.HasIndex(x => x.TokenHash).IsUnique();
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<ArticleDocument>(e =>
+        {
+            e.ToTable("ArticleDocuments");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.FileName).HasMaxLength(260).IsRequired();
+            e.Property(x => x.ContentHash).HasMaxLength(64).IsRequired();
+            e.HasIndex(x => x.ContentHash).IsUnique();
+            e.Property(x => x.StorageKey).HasMaxLength(100).IsRequired();
+            e.Property(x => x.ReportJson).IsRequired();
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
+        });
+
+        b.Entity<ArticleCandidate>(e =>
+        {
+            e.ToTable("ArticleCandidates");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ProposedTitle).HasMaxLength(300).IsRequired();
+            e.Property(x => x.ContentHtml).IsRequired();
+            e.Property(x => x.State).HasMaxLength(30).IsRequired();
+            e.HasIndex(x => new { x.DocumentId, x.CandidateIndex }).IsUnique();
+            e.HasOne<ArticleDocument>().WithMany().HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<AuditLog>(e =>

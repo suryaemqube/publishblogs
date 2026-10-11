@@ -7,6 +7,9 @@ using Microsoft.IdentityModel.Tokens;
 using Swan.Adapters.Abstractions;
 using Swan.Adapters.WordPress;
 using Swan.Api.Cli;
+using Swan.Api.Documents;
+using Swan.Infrastructure.Content;
+using Swan.Infrastructure.Storage;
 using Swan.Api.Sites;
 using Swan.Domain.Identity;
 using Swan.Infrastructure.Auth;
@@ -42,6 +45,8 @@ builder.Services.AddSingleton(new SiteRegistry(siteConfigs));
 builder.Services.AddSingleton(authOptions);
 builder.Services.AddDbContext<SwanDbContext>(o => o.UseSqlite(dbPath));
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddSingleton(new LocalFileStore(LocalFileStore.DefaultRoot()));
+builder.Services.AddScoped<DocumentIngestion>();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -198,6 +203,8 @@ sites.MapPost("/{id}/drafts", async (string id, CreateDraftRequest body, SiteReg
     }
 }).RequireAuthorization(PermissionKeys.PublishingDraft);
 
+app.MapDocumentEndpoints();
+
 app.Run();
 return 0;
 
@@ -233,3 +240,4 @@ static object TokenResponse(TokenPair p) => new
 public sealed record CreateDraftRequest(string Title, string ContentHtml, string? Excerpt, string? Slug);
 public sealed record LoginBody(string Email, string Password);
 public sealed record RefreshBody(string? RefreshToken);
+

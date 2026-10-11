@@ -37,3 +37,6 @@ Desktop.ini
 *.db
 *.db-shm
 *.db-wal
+
+# Client content used as a test fixture: keep out of git
+tests/Swan.Docx.Tests/Fixtures/Emqube*.docx
