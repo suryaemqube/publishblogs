@@ -1,11 +1,13 @@
 using System.Net;
 using System.Text;
+using ImageMagick;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Swan.Adapters.Abstractions;
 using Swan.Adapters.WordPress;
 using Swan.Domain.Content;
 using Swan.Infrastructure.Content;
+using Swan.Infrastructure.Media;
 using Swan.Infrastructure.Persistence;
 using Swan.Infrastructure.Storage;
 using Xunit;
@@ -60,32 +62,68 @@ public sealed class FeaturedImageTests : IAsyncLifetime
         var exe = new byte[] { 0x4D, 0x5A, 0x90, 0x00, 0, 0, 0, 0, 0, 0, 0, 0 };
         var ex = await Assert.ThrowsAsync<ImageRejectedException>(() =>
             Images().SetAsync(_article, exe, "cover.jpg", "A cover photo", Guid.NewGuid(), null));
-        Assert.Contains("Only JPG", ex.Message);
+        Assert.Contains("could not be read as a picture", ex.Message);
     }
 
     [Fact]
-    public async Task Image_whose_content_does_not_match_its_extension_is_refused()
+    public async Task Truncated_png_header_is_refused_as_unreadable()
     {
         var ex = await Assert.ThrowsAsync<ImageRejectedException>(() =>
-            Images().SetAsync(_article, Png, "cover.jpg", "A cover photo", Guid.NewGuid(), null));
-        Assert.Contains("JPG or WebP", ex.Message);
-    }
-
-    [Fact]
-    public async Task Png_is_refused_even_with_a_matching_name()
-    {
-        await Assert.ThrowsAsync<ImageRejectedException>(() =>
             Images().SetAsync(_article, Png, "cover.png", "A cover photo", Guid.NewGuid(), null));
+        Assert.Contains("could not be read as a picture", ex.Message);
     }
 
     [Fact]
-    public async Task Image_over_500_kb_is_refused()
+    public async Task Real_png_is_accepted_and_stored_as_webp()
     {
-        var big = new byte[500 * 1024 + 1];
-        Array.Copy(Jpeg, big, Jpeg.Length);
+        var png = MakePicture(800, 600, MagickFormat.Png, smooth: true);
+        await Images().SetAsync(_article, png, "chart.png", "A smooth gradient", Guid.NewGuid(), null);
+
+        var media = await _db.MediaFiles.SingleAsync();
+        Assert.Equal("image/webp", media.MimeType);
+        Assert.Equal("chart.webp", media.FileName);
+        Assert.True(media.ByteSize <= ImageConverter.MaxBytes);
+    }
+
+    [Fact]
+    public async Task Large_picture_is_converted_to_fit_under_500_kb()
+    {
+        var png = MakePicture(3000, 2000, MagickFormat.Png, smooth: true);
+        await Images().SetAsync(_article, png, "big.png", "A large gradient", Guid.NewGuid(), null);
+
+        var media = await _db.MediaFiles.SingleAsync();
+        Assert.Equal("image/webp", media.MimeType);
+        Assert.True(media.ByteSize <= 500 * 1024);
+    }
+
+    [Fact]
+    public async Task Picture_that_cannot_be_made_small_enough_is_refused_with_a_clear_message()
+    {
+        var noisy = MakePicture(2000, 2000, MagickFormat.Png, smooth: false);
         var ex = await Assert.ThrowsAsync<ImageRejectedException>(() =>
-            Images().SetAsync(_article, big, "big.jpg", "A cover photo", Guid.NewGuid(), null));
-        Assert.Contains("500 KB", ex.Message);
+            Images().SetAsync(_article, noisy, "noise.png", "A very detailed photo", Guid.NewGuid(), null));
+        Assert.Contains("The limit is 500 KB", ex.Message);
+        Assert.Equal(0, await _db.MediaFiles.CountAsync());
+    }
+
+    /// <summary>A picture of the given size. Smooth pictures compress well; noisy ones cannot be made small.</summary>
+    private static byte[] MakePicture(int width, int height, MagickFormat format, bool smooth)
+    {
+        using var image = smooth
+            ? new MagickImage(MagickColors.SteelBlue, (uint)width, (uint)height)
+            : NoiseImage(width, height);
+        image.Format = format;
+        return image.ToByteArray();
+    }
+
+    private static MagickImage NoiseImage(int width, int height)
+    {
+        var rnd = new Random(7);
+        var rgb = new ushort[width * height * 3];
+        for (var i = 0; i < rgb.Length; i++) rgb[i] = (ushort)(rnd.Next(256) * 257);
+        var image = new MagickImage(MagickColors.Black, (uint)width, (uint)height);
+        image.GetPixels().SetPixels(rgb);
+        return image;
     }
 
     [Fact]

@@ -235,7 +235,7 @@ public class DocxConversionTests(ITestOutputHelper output)
         var article = Assert.Single(result.Candidates);
         var image = Assert.Single(article.ImageAssets);
         Assert.Null(image.Problem);
-        Assert.Equal("image/jpeg", image.MimeType);
+        Assert.Equal("jpeg", image.MimeType);
         Assert.Equal("A team in the office", image.AltText);
         Assert.Contains("<figure><img src=\"swan-image:1\" alt=\"A team in the office\" /><figcaption>Figure 1 - the office</figcaption></figure>", article.ContentHtml);
         Assert.DoesNotContain("Figure 1 - the office</p>", article.ContentHtml); // the caption is not repeated as a paragraph
@@ -243,12 +243,21 @@ public class DocxConversionTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Png_picture_is_flagged_so_the_writer_saves_it_as_jpg_or_webp()
+    public void Png_picture_is_accepted_and_converted_later_not_flagged()
     {
         using var doc = DocxWithPicture(TinyPng, "A chart", caption: false);
         var image = Assert.Single(Assert.Single(HouseStyleConverter.Convert(DocxReader.Read(doc)).Candidates).ImageAssets);
-        Assert.Contains("PNG", image.Problem);
-        Assert.Contains("Save it as JPG or WebP", image.Problem);
+        Assert.Null(image.Problem);
+        Assert.Equal("png", image.MimeType);
+    }
+
+    [Fact]
+    public void Unreadable_picture_bytes_are_flagged()
+    {
+        var junk = new byte[] { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 };
+        using var doc = DocxWithPicture(junk, "Junk", caption: false);
+        var image = Assert.Single(Assert.Single(HouseStyleConverter.Convert(DocxReader.Read(doc)).Candidates).ImageAssets);
+        Assert.Contains("not a picture Swan can read", image.Problem);
     }
 
     [Fact]
@@ -260,13 +269,13 @@ public class DocxConversionTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Picture_over_500_kb_is_flagged()
+    public void Large_picture_is_not_flagged_here_because_size_is_checked_after_conversion()
     {
         var big = new byte[600 * 1024];
         Array.Copy(TinyJpeg, big, TinyJpeg.Length);
         using var doc = DocxWithPicture(big, "A large photo", caption: false);
         var image = Assert.Single(Assert.Single(HouseStyleConverter.Convert(DocxReader.Read(doc)).Candidates).ImageAssets);
-        Assert.Contains("The limit is 500 KB", image.Problem);
+        Assert.Null(image.Problem);
     }
 
     // ---- helpers to build small in-memory documents ----------------------------------------

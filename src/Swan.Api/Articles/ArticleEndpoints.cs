@@ -44,7 +44,7 @@ public static class ArticleEndpoints
             var form = await request.ReadFormAsync(ct);
             var file = form.Files.GetFile("file");
             if (file is null) return Results.BadRequest(new { error = "Choose an image file." });
-            if (file.Length > FeaturedImageService.MaxBytes) return Results.BadRequest(new { error = "The image is larger than 500 KB. Compress it and upload again." });
+            if (file.Length > FeaturedImageService.MaxUploadBytes) return Results.BadRequest(new { error = "The file is larger than 25 MB." });
 
             byte[] bytes;
             using (var ms = new MemoryStream())
@@ -206,3 +206,4 @@ public static class ArticleEndpoints
         lastSyncedUtc = p.LastSyncedUtc,
     };
 }
+

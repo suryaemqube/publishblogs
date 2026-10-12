@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Swan.Docx;
 using Swan.Domain.Content;
 using Swan.Domain.Identity;
+using Swan.Infrastructure.Media;
 using Swan.Infrastructure.Persistence;
 using Swan.Infrastructure.Storage;
 
@@ -157,31 +158,43 @@ public sealed class DocumentIngestion(SwanDbContext db, LocalFileStore files, Ti
         foreach (var a in assets)
         {
             Guid? mediaId = null;
-            if (a.Problem is null && a.MimeType is not null)
+            string? mime = null;
+            var problem = a.Problem;
+
+            if (problem is null)
             {
-                var hash = Convert.ToHexString(SHA256.HashData(a.Bytes)).ToLowerInvariant();
-                var media = _addedThisUpload.TryGetValue(hash, out var pending)
-                    ? pending
-                    : await db.MediaFiles.FirstOrDefaultAsync(m => m.ContentHash == hash, ct);
-                if (media is null)
+                // Any JPG/PNG/WebP/GIF is converted to WebP and must fit in 500 KB after conversion.
+                try
                 {
-                    var ext = a.MimeType == "image/webp" ? ".webp" : ".jpg";
-                    var key = $"{hash}{ext}";
-                    await files.SaveAsync(key, a.Bytes, ct);
-                    media = new MediaFile
+                    var normalized = ImageConverter.Normalize(a.Bytes);
+                    mime = normalized.MimeType;
+                    var hash = Convert.ToHexString(SHA256.HashData(normalized.Bytes)).ToLowerInvariant();
+                    var media = _addedThisUpload.TryGetValue(hash, out var pending)
+                        ? pending
+                        : await db.MediaFiles.FirstOrDefaultAsync(m => m.ContentHash == hash, ct);
+                    if (media is null)
                     {
-                        Id = Guid.NewGuid(),
-                        ContentHash = hash,
-                        StorageKey = key,
-                        FileName = a.FileName.Length > 0 ? a.FileName : $"image{ext}",
-                        MimeType = a.MimeType,
-                        ByteSize = a.Bytes.Length,
-                        UploadedUtc = _clock.GetUtcNow().UtcDateTime,
-                    };
-                    db.MediaFiles.Add(media);
-                    _addedThisUpload[hash] = media;
+                        var key = $"{hash}{normalized.Extension}";
+                        await files.SaveAsync(key, normalized.Bytes, ct);
+                        media = new MediaFile
+                        {
+                            Id = Guid.NewGuid(),
+                            ContentHash = hash,
+                            StorageKey = key,
+                            FileName = Path.GetFileNameWithoutExtension(a.FileName is { Length: > 0 } n ? n : "image") + normalized.Extension,
+                            MimeType = normalized.MimeType,
+                            ByteSize = normalized.Bytes.Length,
+                            UploadedUtc = _clock.GetUtcNow().UtcDateTime,
+                        };
+                        db.MediaFiles.Add(media);
+                        _addedThisUpload[hash] = media;
+                    }
+                    mediaId = media.Id;
                 }
-                mediaId = media.Id;
+                catch (ImageRejectedException ex)
+                {
+                    problem = $"Image {a.Ordinal} (paragraph {a.ParagraphIndex}): {ex.Message}";
+                }
             }
 
             rows.Add(new ArticleImage
@@ -193,9 +206,9 @@ public sealed class DocumentIngestion(SwanDbContext db, LocalFileStore files, Ti
                 ParagraphIndex = a.ParagraphIndex,
                 MediaFileId = mediaId,
                 FileName = a.FileName,
-                MimeType = a.MimeType,
+                MimeType = mime,
                 AltText = a.AltText,
-                Problem = a.Problem,
+                Problem = problem,
             });
         }
         return rows;

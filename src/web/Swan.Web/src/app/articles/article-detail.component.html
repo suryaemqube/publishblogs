@@ -63,10 +63,10 @@
             <img [src]="url" [alt]="d.article.featuredImage?.altText ?? ''" class="featured-preview" />
             <p class="xs muted" style="margin:6px 0 12px">Alt text: {{ d.article.featuredImage?.altText }}</p>
           } @else {
-            <p class="small muted" style="margin-top:0">No featured image yet. Required before a draft can be sent. JPG or WebP, up to 500 KB.</p>
+            <p class="small muted" style="margin-top:0">No featured image yet. Required before a draft can be sent. Any JPG, PNG or WebP picture; Swan converts it to WebP and it must end up under 500 KB.</p>
           }
           <div class="stack">
-            <input type="file" accept=".jpg,.jpeg,.webp,image/jpeg,image/webp" (change)="onImageChosen($event)" aria-label="Choose image" />
+            <input type="file" accept=".jpg,.jpeg,.png,.webp,.gif,.bmp,.tif,.tiff,image/*" (change)="onImageChosen($event)" aria-label="Choose image" />
             <div class="field" style="margin:0">
               <label for="alt">Alt text (describe the image)</label>
               <input class="input" id="alt" maxlength="250" [value]="imageAlt()" (input)="imageAlt.set($any($event.target).value)" />

@@ -263,7 +263,7 @@ public static class HouseStyleConverter
                         var token = $"swan-image:{ordinal}";
                         _images.TryGetValue(img.RelId, out var file);
                         var problem = ImageRules.Problem(ordinal, p.Index, file?.Bytes, img.AltText);
-                        assets.Add(new DocxImageAsset(ordinal, token, p.Index, file?.FileName ?? "", file is null ? null : ImageRules.DetectMime(file.Bytes),
+                        assets.Add(new DocxImageAsset(ordinal, token, p.Index, file?.FileName ?? "", file is null ? null : ImageRules.DetectFormat(file.Bytes),
                                                       file?.Bytes ?? [], img.AltText, problem));
 
                         html.Append("<figure><img src=\"").Append(token).Append("\" alt=\"")
