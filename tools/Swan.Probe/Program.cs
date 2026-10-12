@@ -13,11 +13,39 @@ using Swan.Adapters.WordPress;
 var credsPath = CredentialFile.DefaultPath();
 var createDraft = false;
 string? userAgent = null;
+string? inspectPostId = null;
 for (var i = 0; i < args.Length; i++)
 {
     if (args[i] == "--creds" && i + 1 < args.Length) credsPath = args[++i];
     else if (args[i] == "--create-draft") createDraft = true;
     else if (args[i] == "--user-agent" && i + 1 < args.Length) userAgent = args[++i];
+    else if (args[i] == "--inspect-post" && i + 1 < args.Length) inspectPostId = args[++i];
+}
+
+// Read-only: prints a post's status and the NAMES of its meta keys (never values).
+if (inspectPostId is not null)
+{
+    var s = CredentialFile.Load(credsPath);
+    using var c = new WordPressRestClient(new WordPressSiteOptions(
+        new Uri(CredentialFile.Require(s, "RestOrigin"), UriKind.Absolute),
+        CredentialFile.Require(s, "PostTypeKey"),
+        CredentialFile.Require(s, "RestBase"),
+        CredentialFile.Require(s, "Username"),
+        CredentialFile.Require(s, "ApplicationPassword"),
+        userAgent));
+    var res = await c.GetAsync($"/wp-json/wp/v2/{CredentialFile.Require(s, "RestBase")}/{inspectPostId}?context=edit");
+    Console.WriteLine($"HTTP {(int)res.Status}");
+    if (res.Body is null) return 1;
+    Console.WriteLine($"status: {res.Body["status"]}");
+    Console.WriteLine($"slug: {res.Body["slug"]}");
+    Console.WriteLine($"link: {res.Body["link"]}");
+    Console.WriteLine("meta keys:");
+    if (res.Body["meta"] is System.Text.Json.Nodes.JsonObject meta)
+        foreach (var k in meta.Select(kv => kv.Key)) Console.WriteLine($"  {k}");
+    else
+        Console.WriteLine("  (meta not exposed in REST)");
+    if (res.Body["yoast_head_json"] is not null) Console.WriteLine("yoast_head_json: present");
+    return 0;
 }
 
 WordPressSiteOptions options;

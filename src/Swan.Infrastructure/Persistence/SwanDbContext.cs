@@ -15,6 +15,8 @@ public sealed class SwanDbContext(DbContextOptions<SwanDbContext> options) : DbC
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<ArticleDocument> ArticleDocuments => Set<ArticleDocument>();
     public DbSet<ArticleCandidate> ArticleCandidates => Set<ArticleCandidate>();
+    public DbSet<Article> Articles => Set<Article>();
+    public DbSet<ArticlePublication> ArticlePublications => Set<ArticlePublication>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -95,6 +97,27 @@ public sealed class SwanDbContext(DbContextOptions<SwanDbContext> options) : DbC
             e.Property(x => x.Slug).HasMaxLength(200);
             e.HasIndex(x => new { x.DocumentId, x.CandidateIndex }).IsUnique();
             e.HasOne<ArticleDocument>().WithMany().HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<Article>(e =>
+        {
+            e.ToTable("Articles");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Title).HasMaxLength(300).IsRequired();
+            e.Property(x => x.ContentHtml).IsRequired();
+            e.Property(x => x.Status).HasMaxLength(30).IsRequired();
+            e.Property(x => x.Slug).HasMaxLength(200);
+            e.Property(x => x.CanonicalPath).HasMaxLength(500);
+            e.HasIndex(x => x.SourceCandidateId).IsUnique();
+        });
+
+        b.Entity<ArticlePublication>(e =>
+        {
+            e.ToTable("ArticlePublications");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.SiteId).HasMaxLength(100).IsRequired();
+            e.HasIndex(x => new { x.ArticleId, x.SiteId }).IsUnique();
+            e.HasOne<Article>().WithMany().HasForeignKey(x => x.ArticleId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<AuditLog>(e =>

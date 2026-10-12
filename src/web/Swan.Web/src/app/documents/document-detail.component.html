@@ -33,6 +33,10 @@
     </div>
   }
 
+  @if (acceptError(); as err) {
+    <div class="alert alert-danger" style="margin-bottom:16px"><p style="margin:0">{{ err }}</p></div>
+  }
+
   <div class="split">
     <div>
       <div class="card" style="margin-bottom:20px">
@@ -50,7 +54,16 @@
                     @if (a.isUnverified) { &middot; <span class="chip chip-warn" style="font-size:11px">unverified</span> }
                   </div>
                 </div>
-                <button class="btn btn-sm" type="button">{{ openArticle() === a.id ? 'Hide' : 'Preview' }}</button>
+                <div class="row-tight">
+                  @if (a.acceptedArticleId || accepted()[a.id]) {
+                    <a class="btn btn-sm" [routerLink]="['/articles', a.acceptedArticleId ?? accepted()[a.id]]">Open article</a>
+                  } @else {
+                    <button class="btn btn-primary btn-sm" type="button" [disabled]="accepting()" (click)="$event.stopPropagation(); accept(a)">
+                      {{ accepting() === a.id ? 'Accepting...' : 'Accept' }}
+                    </button>
+                  }
+                  <button class="btn btn-sm" type="button">{{ openArticle() === a.id ? 'Hide' : 'Preview' }}</button>
+                </div>
               </div>
               @if (openArticle() === a.id) {
                 <div style="padding:0 20px 20px">

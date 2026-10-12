@@ -1,0 +1,83 @@
+@if (error(); as err) {
+  <div class="alert alert-danger"><p style="margin:0">{{ err }}</p></div>
+  <p style="margin-top:12px"><a routerLink="/articles">Back to articles</a></p>
+} @else if (detail(); as d) {
+  <div class="phead">
+    <div class="grow">
+      <p class="crumbs"><a routerLink="/articles">Articles</a> <span class="sep">/</span> {{ d.article.title }}</p>
+      <h1>{{ d.article.title }}</h1>
+      <p>
+        <span class="chip chip-neutral">{{ d.article.status }}</span>
+        @if (d.article.isUnverified) { <span class="chip chip-warn" style="margin-left:6px">unverified</span> }
+        <span class="muted" style="margin-left:8px">Created {{ d.article.createdUtc | date: 'd MMM y, HH:mm' }} UTC</span>
+      </p>
+    </div>
+  </div>
+
+  <div class="split">
+    <div>
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-h"><h2>Content</h2></div>
+        <div class="card-b ed-b" [innerHTML]="d.article.contentHtml"></div>
+      </div>
+    </div>
+
+    <aside>
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-h"><h2>SEO</h2></div>
+        <div class="card-b">
+          <dl class="seo-list">
+            <dt>SEO title</dt><dd>{{ d.article.seoTitle ?? 'Not set' }}</dd>
+            <dt>Meta description</dt><dd>{{ d.article.metaDescription ?? 'Not set' }}</dd>
+            <dt>WordPress slug</dt><dd>{{ d.article.slug ?? 'Not set' }}</dd>
+            <dt>URL path</dt><dd>{{ d.article.canonicalPath ?? 'Not set' }}</dd>
+          </dl>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h2>Drafts on sites</h2></div>
+        <div class="card-b">
+          <p class="small muted" style="margin-top:0">
+            A draft is created the first time you send. Later sends update that same draft. Published posts are never changed.
+          </p>
+          @for (s of sites(); track s.id) {
+            @let pub = publicationFor(s.id);
+            @let st = stateOf(s.id);
+            <div class="site-row">
+              <div>
+                <div class="strong">{{ s.name }}</div>
+                <div class="xs muted">
+                  @if (pub?.remotePostId) {
+                    Post {{ pub!.remotePostId }} &middot; {{ pub!.remoteStatus }}
+                    @if (pub!.editUrl) { &middot; <a [href]="pub!.editUrl" target="_blank" rel="noopener">Open in WordPress</a> }
+                  } @else {
+                    No draft yet
+                  }
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm" type="button" [disabled]="st.busy" (click)="sendDraft(s.id)">
+                {{ st.busy ? 'Sending...' : (pub?.remotePostId ? 'Update draft' : 'Create draft') }}
+              </button>
+            </div>
+            @if (st.result; as r) {
+              <div class="alert alert-ok" style="margin-top:8px"><p style="margin:0">
+                {{ r.action === 'created' ? 'Draft created' : 'Draft updated' }} (status {{ r.remoteStatus }}).
+              </p></div>
+            }
+            @if (st.refusal; as msg) {
+              <div class="alert alert-warn" style="margin-top:8px"><p style="margin:0">{{ msg }}</p></div>
+            }
+            @if (st.error; as msg) {
+              <div class="alert alert-danger" style="margin-top:8px"><p style="margin:0">{{ msg }}</p></div>
+            }
+          } @empty {
+            <p class="small muted">No sites are connected.</p>
+          }
+        </div>
+      </div>
+    </aside>
+  </div>
+} @else {
+  <p class="muted">Loading...</p>
+}

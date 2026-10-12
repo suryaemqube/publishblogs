@@ -76,7 +76,10 @@ public static class DocumentEndpoints
             var doc = await db.ArticleDocuments.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id, ct);
             if (doc is null) return Results.NotFound(new { error = "Document not found." });
             var (candidates, report) = await ingestion.LoadAsync(doc, ct);
-            return Results.Ok(ToDetail(doc, candidates, report, duplicate: false));
+            var accepted = await db.Articles.AsNoTracking()
+                .Where(a => a.SourceDocumentId == doc.Id)
+                .ToDictionaryAsync(a => a.SourceCandidateId, a => a.Id, ct);
+            return Results.Ok(ToDetail(doc, candidates, report, duplicate: false, accepted));
         });
 
         // The house-style template, so writers can start from a conforming file (PLAN-v2 §6.4).
@@ -91,7 +94,8 @@ public static class DocumentEndpoints
     }
 
     private static object ToDetail(ArticleDocument doc, IReadOnlyList<ArticleCandidate> candidates,
-                                   ConversionResult report, bool duplicate) => new
+                                   ConversionResult report, bool duplicate,
+                                   IReadOnlyDictionary<Guid, Guid>? acceptedArticles = null) => new
     {
         id = doc.Id,
         fileName = doc.FileName,
@@ -112,6 +116,7 @@ public static class DocumentEndpoints
             wordCount = c.WordCount,
             isUnverified = c.IsUnverified,
             state = c.State,
+            acceptedArticleId = acceptedArticles is not null && acceptedArticles.TryGetValue(c.Id, out var aid) ? aid : (Guid?)null,
             contentHtml = c.ContentHtml,
             seo = new
             {

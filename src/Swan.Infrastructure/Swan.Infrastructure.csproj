@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Swan.Domain\Swan.Domain.csproj" />
     <ProjectReference Include="..\Swan.Docx\Swan.Docx.csproj" />
+    <ProjectReference Include="..\Swan.Adapters.Abstractions\Swan.Adapters.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>

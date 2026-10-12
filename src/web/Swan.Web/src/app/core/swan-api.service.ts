@@ -84,6 +84,7 @@ export interface ProposedArticle {
   wordCount: number;
   isUnverified: boolean;
   state: string;
+  acceptedArticleId: string | null;
   contentHtml: string;
   seo: ArticleSeo;
 }
@@ -99,6 +100,44 @@ export interface DocumentDetail {
   duplicate: boolean;
   report: ConversionReport;
   candidates: ProposedArticle[];
+}
+
+export interface ArticleRecord {
+  id: string;
+  title: string;
+  status: string;
+  isUnverified: boolean;
+  sourceDocumentId: string;
+  sourceCandidateId: string;
+  slug: string | null;
+  canonicalPath: string | null;
+  seoTitle: string | null;
+  metaDescription: string | null;
+  contentHtml: string;
+  createdUtc: string;
+  updatedUtc: string;
+}
+
+export interface ArticlePublicationRecord {
+  siteId: string;
+  remotePostId: number | null;
+  remoteStatus: string | null;
+  editUrl: string | null;
+  remoteLink: string | null;
+  lastSyncedUtc: string;
+}
+
+export interface ArticleDetail {
+  article: ArticleRecord;
+  publications: ArticlePublicationRecord[];
+}
+
+export interface DraftSendResult {
+  action: 'created' | 'updated';
+  remotePostId: number;
+  remoteStatus: string;
+  editUrl: string | null;
+  remoteLink: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -122,6 +161,24 @@ export class SwanApiService {
 
   templateUrl(): string {
     return `${SWAN_API_BASE}/documents/template`;
+  }
+
+  acceptCandidate(candidateId: string): Observable<{ article: ArticleDetail['article'] }> {
+    return this.http.post<{ article: ArticleDetail['article'] }>(
+      `${SWAN_API_BASE}/candidates/${encodeURIComponent(candidateId)}/accept`, {});
+  }
+
+  articles(): Observable<ArticleDetail['article'][]> {
+    return this.http.get<ArticleDetail['article'][]>(`${SWAN_API_BASE}/articles`);
+  }
+
+  article(id: string): Observable<ArticleDetail> {
+    return this.http.get<ArticleDetail>(`${SWAN_API_BASE}/articles/${encodeURIComponent(id)}`);
+  }
+
+  sendDraft(articleId: string, siteId: string): Observable<DraftSendResult> {
+    return this.http.post<DraftSendResult>(
+      `${SWAN_API_BASE}/articles/${encodeURIComponent(articleId)}/sites/${encodeURIComponent(siteId)}/draft`, {});
   }
 
   sites(): Observable<SiteSummary[]> {

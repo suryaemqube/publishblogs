@@ -18,6 +18,12 @@ public sealed class SiteConfig
 
     /// <summary>Optional. Only set where the client's server blocks the default agent (PLAN: option B decision).</summary>
     public string? UserAgent { get; set; }
+
+    /// <summary>
+    /// Write Yoast SEO title and meta description over REST. Stays false until the site registers the Yoast
+    /// meta keys with show_in_rest (see the client setup note), otherwise WordPress ignores them silently.
+    /// </summary>
+    public bool WriteYoastMeta { get; set; }
 }
 
 public sealed record SiteSummary(string Id, string Name, string RestOrigin, string PostTypeKey, string RestBase);

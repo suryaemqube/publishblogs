@@ -17,6 +17,66 @@ namespace Swan.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
 
+            modelBuilder.Entity("Swan.Domain.Content.Article", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CanonicalPath")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContentHtml")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsUnverified")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("MetaDescription")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SeoTitle")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Slug")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("SourceCandidateId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("SourceDocumentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourceCandidateId")
+                        .IsUnique();
+
+                    b.ToTable("Articles", (string)null);
+                });
+
             modelBuilder.Entity("Swan.Domain.Content.ArticleCandidate", b =>
                 {
                     b.Property<Guid>("Id")
@@ -133,6 +193,43 @@ namespace Swan.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("ArticleDocuments", (string)null);
+                });
+
+            modelBuilder.Entity("Swan.Domain.Content.ArticlePublication", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ArticleId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EditUrl")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastSyncedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RemoteLink")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("RemotePostId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RemoteStatus")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SiteId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArticleId", "SiteId")
+                        .IsUnique();
+
+                    b.ToTable("ArticlePublications", (string)null);
                 });
 
             modelBuilder.Entity("Swan.Domain.Identity.AuditLog", b =>
@@ -536,6 +633,15 @@ namespace Swan.Infrastructure.Persistence.Migrations
                     b.HasOne("Swan.Domain.Content.ArticleDocument", null)
                         .WithMany()
                         .HasForeignKey("DocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Swan.Domain.Content.ArticlePublication", b =>
+                {
+                    b.HasOne("Swan.Domain.Content.Article", null)
+                        .WithMany()
+                        .HasForeignKey("ArticleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

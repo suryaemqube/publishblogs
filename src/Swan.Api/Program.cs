@@ -8,6 +8,8 @@ using Swan.Adapters.Abstractions;
 using Swan.Adapters.WordPress;
 using Swan.Api.Cli;
 using Swan.Api.Documents;
+using Swan.Api.Articles;
+using Swan.Infrastructure.Content;
 using Swan.Infrastructure.Content;
 using Swan.Infrastructure.Storage;
 using Swan.Api.Sites;
@@ -47,6 +49,8 @@ builder.Services.AddDbContext<SwanDbContext>(o => o.UseSqlite(dbPath));
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddSingleton(new LocalFileStore(LocalFileStore.DefaultRoot()));
 builder.Services.AddScoped<DocumentIngestion>();
+builder.Services.AddScoped<ArticleService>();
+builder.Services.AddScoped<DraftSync>();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -204,6 +208,7 @@ sites.MapPost("/{id}/drafts", async (string id, CreateDraftRequest body, SiteReg
 }).RequireAuthorization(PermissionKeys.PublishingDraft);
 
 app.MapDocumentEndpoints();
+app.MapArticleEndpoints();
 
 app.Run();
 return 0;

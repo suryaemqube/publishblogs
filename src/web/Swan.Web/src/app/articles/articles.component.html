@@ -1,0 +1,35 @@
+<div class="phead">
+  <div class="grow">
+    <h1>Articles</h1>
+    <p>Accepted articles. Each one can have a draft on any connected site.</p>
+  </div>
+</div>
+
+@if (error(); as err) {
+  <div class="alert alert-danger" style="margin-bottom:16px"><p style="margin:0">Could not load articles: {{ err }}</p></div>
+}
+
+<div class="card">
+  <table class="tbl">
+    <thead>
+      <tr><th>Title</th><th>Status</th><th>SEO title</th><th>Created</th><th></th></tr>
+    </thead>
+    <tbody>
+      @for (a of articles(); track a.id) {
+        <tr>
+          <td class="strong">{{ a.title }}
+            @if (a.isUnverified) { <span class="chip chip-warn" style="margin-left:6px">unverified</span> }
+          </td>
+          <td><span class="chip chip-neutral">{{ a.status }}</span></td>
+          <td class="muted">{{ a.seoTitle ?? '-' }}</td>
+          <td class="muted">{{ a.createdUtc | date: 'd MMM y, HH:mm' }}</td>
+          <td class="right"><a class="btn btn-sm" [routerLink]="['/articles', a.id]">Open</a></td>
+        </tr>
+      } @empty {
+        @if (!error()) {
+          <tr><td colspan="5" class="empty">No accepted articles yet. Accept a proposed article from a document.</td></tr>
+        }
+      }
+    </tbody>
+  </table>
+</div>

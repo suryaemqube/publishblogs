@@ -1,11 +1,14 @@
 namespace Swan.Adapters.Abstractions;
 
 /// <summary>Content to be written to a client site as a draft.</summary>
+/// <param name="Slug">WordPress slug only (no slashes). The full URL path is kept by Swan, not sent.</param>
 public sealed record DraftRequest(
     string Title,
     string ContentHtml,
     string? Excerpt = null,
-    string? Slug = null);
+    string? Slug = null,
+    string? SeoTitle = null,
+    string? MetaDescription = null);
 
 /// <summary>What the remote site reports after a draft is written.</summary>
 public sealed record RemoteDraftResult(
@@ -14,23 +17,43 @@ public sealed record RemoteDraftResult(
     string? Link,
     string? EditUrl);
 
+/// <summary>Current state of a remote post, read before any update.</summary>
+public sealed record RemotePostInfo(long RemoteId, string Status, string? Link, string? Slug);
+
 /// <summary>
 /// Writes content to a client site. Provider selection is by SiteIntegrations (PLAN-v2 §8.1).
-/// Publishing is deliberately not on this interface yet: this slice only creates drafts.
+/// Publishing is not on this interface yet: drafts are created and updated only.
 /// </summary>
 public interface IContentPublisher
 {
     Task<RemoteDraftResult> CreateDraftAsync(DraftRequest request, CancellationToken ct = default);
+
+    /// <summary>Updates an existing post only while it is a draft. Refuses published posts (see <see cref="RemotePostNotDraftException"/>).</summary>
+    Task<RemoteDraftResult> UpdateDraftAsync(long remoteId, DraftRequest request, CancellationToken ct = default);
+
+    /// <summary>Returns null when the post does not exist on the site.</summary>
+    Task<RemotePostInfo?> GetPostAsync(long remoteId, CancellationToken ct = default);
 }
 
 /// <summary>Thrown when a site has no configured publisher. Fails loudly, never silently skips.</summary>
 public sealed class PublisherNotConfiguredException(string message) : InvalidOperationException(message);
 
+/// <summary>Thrown instead of updating a post that is already published or otherwise not a draft.</summary>
+public sealed class RemotePostNotDraftException(long remoteId, string status)
+    : InvalidOperationException($"Post {remoteId} is '{status}' on the site, not a draft. It was not changed.")
+{
+    public string Status { get; } = status;
+}
+
 /// <summary>Placeholder used for sites with no publisher configured (PLAN-v2 §15, Workstream 1).</summary>
 public sealed class NoOpContentPublisher : IContentPublisher
 {
-    public Task<RemoteDraftResult> CreateDraftAsync(DraftRequest request, CancellationToken ct = default) =>
-        throw new PublisherNotConfiguredException("No content publisher is configured for this site.");
+    private static readonly PublisherNotConfiguredException NotConfigured =
+        new("No content publisher is configured for this site.");
+
+    public Task<RemoteDraftResult> CreateDraftAsync(DraftRequest request, CancellationToken ct = default) => throw NotConfigured;
+    public Task<RemoteDraftResult> UpdateDraftAsync(long remoteId, DraftRequest request, CancellationToken ct = default) => throw NotConfigured;
+    public Task<RemotePostInfo?> GetPostAsync(long remoteId, CancellationToken ct = default) => throw NotConfigured;
 }
 
 /// <summary>One line of a connection test result.</summary>

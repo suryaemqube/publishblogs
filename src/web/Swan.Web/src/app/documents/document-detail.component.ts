@@ -17,6 +17,9 @@ export class DocumentDetailComponent implements OnInit {
   readonly doc = signal<DocumentDetail | null>(null);
   readonly error = signal<string | null>(null);
   readonly openArticle = signal<string | null>(null);
+  readonly accepting = signal<string | null>(null);
+  readonly acceptError = signal<string | null>(null);
+  readonly accepted = signal<Record<string, string>>({});
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') ?? '';
@@ -29,6 +32,22 @@ export class DocumentDetailComponent implements OnInit {
 
   toggle(article: ProposedArticle): void {
     this.openArticle.update((cur) => (cur === article.id ? null : article.id));
+  }
+
+  /** Accepting turns the proposal into an article. Accepting twice returns the same article. */
+  accept(article: ProposedArticle): void {
+    this.accepting.set(article.id);
+    this.acceptError.set(null);
+    this.api.acceptCandidate(article.id).subscribe({
+      next: (r) => {
+        this.accepted.update((m) => ({ ...m, [article.id]: r.article.id }));
+        this.accepting.set(null);
+      },
+      error: (e: HttpErrorResponse) => {
+        this.acceptError.set(`Could not accept "${article.title}": ${e.error?.error ?? 'HTTP ' + e.status}`);
+        this.accepting.set(null);
+      },
+    });
   }
 
   statusLabel(status: string): { cls: string; text: string } {

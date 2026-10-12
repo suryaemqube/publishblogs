@@ -1,0 +1,143 @@
+using System.Security.Claims;
+using Swan.Adapters.Abstractions;
+using Swan.Adapters.WordPress;
+using Swan.Api.Sites;
+using Swan.Domain.Content;
+using Swan.Domain.Identity;
+using Swan.Infrastructure.Content;
+using Swan.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+
+namespace Swan.Api.Articles;
+
+public static class ArticleEndpoints
+{
+    public static void MapArticleEndpoints(this WebApplication app)
+    {
+        // Accept a proposed article. Idempotent: accepting twice returns the same article.
+        app.MapPost("/api/candidates/{id:guid}/accept", async (Guid id, ArticleService articles, ClaimsPrincipal principal,
+                                                                HttpContext http, CancellationToken ct) =>
+        {
+            var userId = Guid.Parse(principal.FindFirstValue("sub")!);
+            try
+            {
+                var article = await articles.AcceptCandidateAsync(id, userId, http.Connection.RemoteIpAddress?.ToString(), ct);
+                return Results.Ok(new { article = ToDto(article), publications = Array.Empty<object>() });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return Results.NotFound(new { error = ex.Message });
+            }
+        }).RequireAuthorization(PermissionKeys.ArticleWrite);
+
+        var group = app.MapGroup("/api/articles").RequireAuthorization(PermissionKeys.ArticleWrite);
+
+        group.MapGet("/", async (ArticleService articles, CancellationToken ct) =>
+            Results.Ok((await articles.ListAsync(ct)).Select(ToDto)));
+
+        group.MapGet("/{id:guid}", async (Guid id, ArticleService articles, CancellationToken ct) =>
+        {
+            var article = await articles.GetAsync(id, ct);
+            if (article is null) return Results.NotFound(new { error = "Article not found." });
+            var pubs = await articles.PublicationsAsync(id, ct);
+            return Results.Ok(new { article = ToDto(article), publications = pubs.Select(ToPubDto) });
+        });
+
+        // Create or update this article's draft on one site. Published posts are refused (409).
+        group.MapPost("/{id:guid}/sites/{siteId}/draft", async (Guid id, string siteId, SiteRegistry registry,
+                                                              ArticleService articles, DraftSync sync,
+                                                              ClaimsPrincipal principal, HttpContext http, CancellationToken ct) =>
+        {
+            if (!principal.HasClaim("perm", PermissionKeys.PublishingDraft))
+                return Results.Json(new { error = "Your role cannot write drafts to sites." }, statusCode: StatusCodes.Status403Forbidden);
+
+            var article = await articles.GetAsync(id, ct);
+            if (article is null) return Results.NotFound(new { error = "Article not found." });
+
+            var site = registry.Find(siteId);
+            if (site is null) return Results.NotFound(new { error = $"Unknown site '{siteId}'." });
+
+            if (!TryCreateClient(registry, site, out var client, out var error)) return error!;
+            using (client)
+            {
+                var publisher = new WordPressContentPublisher(client!, site.WriteYoastMeta);
+                try
+                {
+                    var userId = Guid.Parse(principal.FindFirstValue("sub")!);
+                    var outcome = await sync.SyncAsync(article, siteId, publisher, userId,
+                                                       http.Connection.RemoteIpAddress?.ToString(), ct);
+                    return Results.Ok(new
+                    {
+                        action = outcome.Action.ToString().ToLowerInvariant(),
+                        remotePostId = outcome.Publication.RemotePostId,
+                        remoteStatus = outcome.Publication.RemoteStatus,
+                        editUrl = outcome.Publication.EditUrl,
+                        remoteLink = outcome.Publication.RemoteLink,
+                    });
+                }
+                catch (RemoteDraftPublishedException ex)
+                {
+                    return Results.Json(new { error = ex.Message, refused = "published", status = ex.Status },
+                                        statusCode: StatusCodes.Status409Conflict);
+                }
+                catch (RemotePostNotDraftException ex)
+                {
+                    return Results.Json(new { error = ex.Message, refused = "published", status = ex.Status },
+                                        statusCode: StatusCodes.Status409Conflict);
+                }
+                catch (RemoteDraftMissingException ex)
+                {
+                    return Results.Json(new { error = ex.Message, refused = "missing" }, statusCode: StatusCodes.Status409Conflict);
+                }
+                catch (WordPressApiException ex)
+                {
+                    return Results.Problem(ex.Message, statusCode: StatusCodes.Status502BadGateway, title: "Site rejected the request");
+                }
+            }
+        });
+    }
+
+    private static bool TryCreateClient(SiteRegistry sites, SiteConfig site, out WordPressRestClient? client, out IResult? error)
+    {
+        try
+        {
+            client = sites.CreateWordPressClient(site);
+            error = null;
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException or UriFormatException)
+        {
+            client = null;
+            error = Results.Problem($"Site '{site.Id}' is not configured: {ex.Message}",
+                                    statusCode: StatusCodes.Status503ServiceUnavailable, title: "Site configuration incomplete");
+            return false;
+        }
+    }
+
+    private static object ToDto(Article a) => new
+    {
+        id = a.Id,
+        title = a.Title,
+        status = a.Status,
+        isUnverified = a.IsUnverified,
+        sourceDocumentId = a.SourceDocumentId,
+        sourceCandidateId = a.SourceCandidateId,
+        slug = a.Slug,
+        canonicalPath = a.CanonicalPath,
+        seoTitle = a.SeoTitle,
+        metaDescription = a.MetaDescription,
+        contentHtml = a.ContentHtml,
+        createdUtc = a.CreatedUtc,
+        updatedUtc = a.UpdatedUtc,
+    };
+
+    private static object ToPubDto(ArticlePublication p) => new
+    {
+        siteId = p.SiteId,
+        remotePostId = p.RemotePostId,
+        remoteStatus = p.RemoteStatus,
+        editUrl = p.EditUrl,
+        remoteLink = p.RemoteLink,
+        lastSyncedUtc = p.LastSyncedUtc,
+    };
+}

@@ -1,0 +1,25 @@
+.seo-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 14px;
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+
+.seo-list dt {
+  color: var(--text-muted);
+}
+
+.seo-list dd {
+  margin: 0;
+  word-break: break-word;
+}
+
+.site-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}

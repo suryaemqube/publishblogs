@@ -4,6 +4,8 @@ import { ShellComponent } from './layout/shell.component';
 import { SitesComponent } from './sites/sites.component';
 import { DocumentsComponent } from './documents/documents.component';
 import { DocumentDetailComponent } from './documents/document-detail.component';
+import { ArticlesComponent } from './articles/articles.component';
+import { ArticleDetailComponent } from './articles/article-detail.component';
 import { authGuard } from './core/auth.guard';
 
 export const routes: Routes = [
@@ -14,6 +16,8 @@ export const routes: Routes = [
     canActivate: [authGuard],
     children: [
       { path: 'documents', component: DocumentsComponent },
+      { path: 'articles', component: ArticlesComponent },
+      { path: 'articles/:id', component: ArticleDetailComponent },
       { path: 'documents/:id', component: DocumentDetailComponent },
       { path: 'sites', component: SitesComponent },
       { path: '', pathMatch: 'full', redirectTo: 'sites' },
