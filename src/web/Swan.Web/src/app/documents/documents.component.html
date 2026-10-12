@@ -11,6 +11,13 @@
 <div class="card" style="margin-bottom:20px">
   <div class="card-b">
     <div class="row" style="flex-wrap:wrap">
+      <div class="field" style="margin:0; min-width:240px">
+        <label for="doc-client">Client</label>
+        <select class="input" id="doc-client" [value]="selectedSiteId()" (change)="selectedSiteId.set($any($event.target).value)">
+          <option value="" disabled>Choose a client</option>
+          @for (s of sites(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
+        </select>
+      </div>
       <input type="file" accept=".docx" (change)="onFileChosen($event)" aria-label="Choose a .docx file" />
       @if (canOverride) {
         <label class="checkline">
@@ -19,7 +26,7 @@
         </label>
       }
       <button class="btn btn-primary" type="button"
-              [disabled]="!selectedFile() || uploading()" (click)="upload()">
+              [disabled]="!selectedFile() || !selectedSiteId() || uploading()" (click)="upload()">
         {{ uploading() ? 'Checking...' : 'Upload and check' }}
       </button>
     </div>
@@ -48,6 +55,9 @@
               <p style="margin:4px 0 0">
                 {{ r.status === 'ImportedUnverified' ? 'Imported without the house-style check. Full review required before approval.' : 'Every article follows the house style.' }}
               </p>
+              @if (r.duplicate) {
+                <p style="margin:4px 0 0">This file was already uploaded for <strong>{{ siteName(r.clientSiteId) }}</strong>. Its client does not change.</p>
+              }
             </div>
           </div>
         }
@@ -66,12 +76,13 @@
 <div class="card">
   <table class="tbl">
     <thead>
-      <tr><th>File</th><th>Uploaded</th><th>Status</th><th>Articles</th><th class="right">Size</th><th></th></tr>
+      <tr><th>File</th><th>Client</th><th>Uploaded</th><th>Status</th><th>Articles</th><th class="right">Size</th><th></th></tr>
     </thead>
     <tbody>
       @for (d of documents(); track d.id) {
         <tr>
           <td class="strong">{{ d.fileName }}</td>
+          <td class="muted">{{ siteName(d.clientSiteId) }}</td>
           <td class="muted">{{ d.uploadedUtc | date: 'd MMM y, HH:mm' }}</td>
           <td><span class="chip {{ statusLabel(d.status).cls }}"><span class="dot"></span>{{ statusLabel(d.status).text }}</span></td>
           <td>{{ d.candidates }}</td>
@@ -80,7 +91,7 @@
         </tr>
       } @empty {
         @if (!loadError()) {
-          <tr><td colspan="6" class="empty">No documents yet. Upload one above.</td></tr>
+          <tr><td colspan="7" class="empty">No documents yet. Upload one above.</td></tr>
         }
       }
     </tbody>

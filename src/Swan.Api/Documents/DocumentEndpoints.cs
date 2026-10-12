@@ -2,11 +2,14 @@ using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Swan.Docx;
 using Swan.Domain.Content;
+using Swan.Api.Sites;
 using Swan.Domain.Identity;
 using Swan.Infrastructure.Content;
 using Swan.Infrastructure.Persistence;
 
 namespace Swan.Api.Documents;
+
+public sealed record SetDocumentClientBody(string? SiteId);
 
 public static class DocumentEndpoints
 {
@@ -17,7 +20,7 @@ public static class DocumentEndpoints
         var group = app.MapGroup("/api/documents").RequireAuthorization(PermissionKeys.ArticleWrite);
 
         // Upload. Returns 201 for a new file, 200 when the identical file was already uploaded.
-        group.MapPost("/", async (HttpRequest request, DocumentIngestion ingestion, ClaimsPrincipal principal,
+        group.MapPost("/", async (HttpRequest request, DocumentIngestion ingestion, SiteRegistry registry, ClaimsPrincipal principal,
                                   HttpContext http, CancellationToken ct) =>
         {
             if (!request.HasFormContentType) return Results.BadRequest(new { error = "Send the file as multipart form data." });
@@ -25,6 +28,10 @@ public static class DocumentEndpoints
             var file = form.Files.GetFile("file");
             if (file is null || file.Length == 0) return Results.BadRequest(new { error = "Choose a .docx file to upload." });
             if (file.Length > MaxUploadBytes) return Results.BadRequest(new { error = "File is larger than 25 MB." });
+
+            var siteId = form["siteId"].ToString().Trim();
+            if (string.IsNullOrEmpty(siteId)) return Results.BadRequest(new { error = "Choose the client this document is for." });
+            if (registry.Find(siteId) is null) return Results.BadRequest(new { error = $"Unknown client '{siteId}'." });
 
             var importAnyway = string.Equals(form["importAnyway"], "true", StringComparison.OrdinalIgnoreCase);
             var mayOverride = principal.HasClaim("perm", PermissionKeys.ArticleImportUnverified);
@@ -39,7 +46,7 @@ public static class DocumentEndpoints
 
             try
             {
-                var outcome = await ingestion.IngestAsync(bytes, file.FileName, userId, importAnyway, mayOverride,
+                var outcome = await ingestion.IngestAsync(bytes, file.FileName, siteId, userId, importAnyway, mayOverride,
                                                           http.Connection.RemoteIpAddress?.ToString(), ct);
                 var dto = ToDetail(outcome.Document, outcome.Candidates, outcome.Report, outcome.Duplicate, outcome.Images ?? []);
                 return outcome.Duplicate ? Results.Ok(dto) : Results.Created($"/api/documents/{outcome.Document.Id}", dto);
@@ -65,6 +72,7 @@ public static class DocumentEndpoints
                     Status = d.Status.ToString(),
                     d.UploadedUtc,
                     d.FileSizeBytes,
+                    clientSiteId = d.SiteId,
                     Candidates = db.ArticleCandidates.Count(c => c.DocumentId == d.Id),
                 })
                 .ToListAsync(ct);
@@ -80,6 +88,39 @@ public static class DocumentEndpoints
                 .Where(a => a.SourceDocumentId == doc.Id)
                 .ToDictionaryAsync(a => a.SourceCandidateId, a => a.Id, ct);
             return Results.Ok(ToDetail(doc, candidates, report, duplicate: false, images, accepted));
+        });
+
+        // Sets the client on a document uploaded before clients were chosen at upload. Once set, it cannot change.
+        // Articles already accepted from the document take the same client.
+        group.MapPut("/{id:guid}/client", async (Guid id, SetDocumentClientBody body, SiteRegistry registry, SwanDbContext db,
+                                                 ClaimsPrincipal principal, HttpContext http, CancellationToken ct) =>
+        {
+            var siteId = body.SiteId?.Trim() ?? "";
+            if (siteId.Length == 0) return Results.BadRequest(new { error = "Choose the client this document is for." });
+            if (registry.Find(siteId) is null) return Results.BadRequest(new { error = $"Unknown client '{siteId}'." });
+
+            var doc = await db.ArticleDocuments.FirstOrDefaultAsync(d => d.Id == id, ct);
+            if (doc is null) return Results.NotFound(new { error = "Document not found." });
+            if (doc.SiteId is not null)
+                return Results.Json(new { error = $"This document is already set to client '{doc.SiteId}'. The client cannot be changed." },
+                                    statusCode: StatusCodes.Status409Conflict);
+
+            doc.SiteId = siteId;
+            var articles = await db.Articles.Where(a => a.SourceDocumentId == id && a.SiteId == null).ToListAsync(ct);
+            foreach (var a in articles) a.SiteId = siteId;
+
+            db.AuditLogs.Add(new Swan.Domain.Identity.AuditLog
+            {
+                UserId = Guid.Parse(principal.FindFirstValue("sub")!),
+                Action = "document.client_set",
+                EntityType = "ArticleDocument",
+                EntityId = id.ToString(),
+                Details = $"client={siteId} articles={articles.Count}",
+                IpAddress = http.Connection.RemoteIpAddress?.ToString(),
+                CreatedUtc = DateTime.UtcNow,
+            });
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(new { clientSiteId = siteId, articlesUpdated = articles.Count });
         });
 
         // The house-style template, so writers can start from a conforming file (PLAN-v2 §6.4).
@@ -116,6 +157,7 @@ public static class DocumentEndpoints
         status = doc.Status.ToString(),
         uploadedUtc = doc.UploadedUtc,
         fileSizeBytes = doc.FileSizeBytes,
+        clientSiteId = doc.SiteId,
         totalParagraphs = doc.TotalParagraphs,
         importedWithOverride = doc.ImportedWithOverride,
         duplicate,

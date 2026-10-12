@@ -28,11 +28,17 @@ public sealed class ArticleService(SwanDbContext db, TimeProvider? clock = null)
         }
 
         var now = _clock.GetUtcNow().UtcDateTime;
+        var documentSiteId = await db.ArticleDocuments.AsNoTracking()
+            .Where(d => d.Id == candidate.DocumentId)
+            .Select(d => d.SiteId)
+            .FirstOrDefaultAsync(ct);
+
         var article = new Article
         {
             Id = Guid.NewGuid(),
             SourceDocumentId = candidate.DocumentId,
             SourceCandidateId = candidate.Id,
+            SiteId = documentSiteId,
             Title = candidate.ProposedTitle,
             ContentHtml = candidate.ContentHtml,
             SeoTitle = candidate.SeoTitle,

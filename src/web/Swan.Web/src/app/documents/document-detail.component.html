@@ -7,11 +7,31 @@
       <p class="crumbs"><a routerLink="/documents">Documents</a> <span class="sep">/</span> {{ d.fileName }}</p>
       <h1>{{ d.fileName }}</h1>
       <p>
+        Client: <strong>{{ siteName(d.clientSiteId) }}</strong> &middot;
         Uploaded {{ d.uploadedUtc | date: 'd MMM y, HH:mm' }} UTC &middot; {{ d.totalParagraphs }} paragraphs
         <span class="chip {{ statusLabel(d.status).cls }}" style="margin-left:8px"><span class="dot"></span>{{ statusLabel(d.status).text }}</span>
       </p>
     </div>
   </div>
+
+  @if (!d.clientSiteId) {
+    <div class="alert alert-warn" style="margin-bottom:16px">
+      <div>
+        <h3 style="margin:0 0 6px">No client set</h3>
+        <p class="small" style="margin:0 0 10px">This document was uploaded before clients were chosen at upload. Choose its client once. After that it cannot change.</p>
+        <div class="row" style="flex-wrap:wrap">
+          <select class="input" aria-label="Client for this document" [value]="clientChoice()" (change)="clientChoice.set($any($event.target).value)">
+            <option value="" disabled>Choose a client</option>
+            @for (s of sites(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
+          </select>
+          <button class="btn btn-primary btn-sm" type="button" [disabled]="!clientChoice() || settingClient()" (click)="setClient(d.id)">
+            {{ settingClient() ? 'Saving...' : 'Set client' }}
+          </button>
+        </div>
+        @if (clientError(); as err) { <p class="small" style="margin:8px 0 0; color:var(--danger, #b00020)">{{ err }}</p> }
+      </div>
+    </div>
+  }
 
   @if (d.status === 'Rejected') {
     <div class="alert alert-danger" style="margin-bottom:20px">

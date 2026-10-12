@@ -3,7 +3,7 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../core/auth.service';
-import { DocumentDetail, DocumentSummary, SWAN_API_BASE, SwanApiService } from '../core/swan-api.service';
+import { DocumentDetail, DocumentSummary, SiteSummary, SWAN_API_BASE, SwanApiService } from '../core/swan-api.service';
 import { PermissionKeys } from '../core/permissions';
 
 @Component({
@@ -20,6 +20,9 @@ export class DocumentsComponent implements OnInit {
   readonly documents = signal<DocumentSummary[]>([]);
   readonly loadError = signal<string | null>(null);
 
+  readonly sites = signal<SiteSummary[]>([]);
+  /** The client the document is for. Required before upload; the article inherits it. */
+  readonly selectedSiteId = signal<string>('');
   readonly selectedFile = signal<File | null>(null);
   readonly importAnyway = signal(false);
   readonly uploading = signal(false);
@@ -28,6 +31,18 @@ export class DocumentsComponent implements OnInit {
 
   ngOnInit(): void {
     this.reload();
+    this.api.sites().subscribe({
+      next: (s) => {
+        this.sites.set(s);
+        if (!this.selectedSiteId() && s.length === 1) this.selectedSiteId.set(s[0].id);
+      },
+      error: (e: HttpErrorResponse) => this.uploadError.set(`Could not load clients: ${describe(e)}`),
+    });
+  }
+
+  siteName(id: string | null): string {
+    if (!id) return 'Not set';
+    return this.sites().find((s) => s.id === id)?.name ?? id;
   }
 
   get canOverride(): boolean {
@@ -50,11 +65,16 @@ export class DocumentsComponent implements OnInit {
 
   upload(): void {
     const file = this.selectedFile();
+    const siteId = this.selectedSiteId();
     if (!file || this.uploading()) return;
+    if (!siteId) {
+      this.uploadError.set('Choose the client this document is for before uploading.');
+      return;
+    }
     this.uploading.set(true);
     this.uploadError.set(null);
     this.result.set(null);
-    this.api.uploadDocument(file, this.importAnyway()).subscribe({
+    this.api.uploadDocument(file, siteId, this.importAnyway()).subscribe({
       next: (d) => {
         this.result.set(d);
         this.uploading.set(false);

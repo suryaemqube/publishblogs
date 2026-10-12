@@ -9,6 +9,7 @@
       <p>
         <span class="chip chip-neutral">{{ d.article.status }}</span>
         @if (d.article.isUnverified) { <span class="chip chip-warn" style="margin-left:6px">unverified</span> }
+        <span class="chip chip-neutral" style="margin-left:8px">Client: {{ siteName(d.article.clientSiteId) }}</span>
         <span class="muted" style="margin-left:8px">Created {{ d.article.createdUtc | date: 'd MMM y, HH:mm' }} UTC</span>
       </p>
     </div>
@@ -95,12 +96,12 @@
       </div>
 
       <div class="card">
-        <div class="card-h"><h2>Drafts on sites</h2></div>
+        <div class="card-h"><h2>Draft for this client</h2></div>
         <div class="card-b">
           <p class="small muted" style="margin-top:0">
             A draft is created the first time you send. Later sends update that same draft. Published posts are never changed.
           </p>
-          @for (s of sites(); track s.id) {
+          @for (s of sitesFor(d.article.clientSiteId); track s.id) {
             @let pub = publicationFor(s.id);
             @let st = stateOf(s.id);
             <div class="site-row">
@@ -131,7 +132,9 @@
               <div class="alert alert-danger" style="margin-top:8px"><p style="margin:0">{{ msg }}</p></div>
             }
           } @empty {
-            <p class="small muted">No sites are connected.</p>
+            <p class="small muted">
+              This article has no client. Re-upload its document and choose the client it is for.
+            </p>
           }
         </div>
       </div>

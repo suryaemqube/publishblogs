@@ -9,6 +9,9 @@ public sealed class Article
     public Guid Id { get; set; }
     public Guid SourceDocumentId { get; set; }
     public Guid SourceCandidateId { get; set; }
+
+    /// <summary>The client, copied from the source document when the article is accepted. Drafts go only to this client.</summary>
+    public string? SiteId { get; set; }
     public string Title { get; set; } = "";
     public string ContentHtml { get; set; } = "";
     public string? SeoTitle { get; set; }

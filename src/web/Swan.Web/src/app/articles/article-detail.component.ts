@@ -28,6 +28,16 @@ export class ArticleDetailComponent implements OnInit {
 
   readonly detail = signal<ArticleDetail | null>(null);
   readonly sites = signal<SiteSummary[]>([]);
+
+  /** The article's client, from its document. Drafts are sent only to this client. */
+  sitesFor(siteId: string | null): SiteSummary[] {
+    return siteId ? this.sites().filter((s) => s.id === siteId) : [];
+  }
+
+  siteName(siteId: string | null): string {
+    if (!siteId) return 'Not set';
+    return this.sites().find((s) => s.id === siteId)?.name ?? siteId;
+  }
   readonly error = signal<string | null>(null);
   readonly send = signal<Record<string, SendState>>({});
 

@@ -108,6 +108,14 @@ public static class ArticleEndpoints
             var site = registry.Find(siteId);
             if (site is null) return Results.NotFound(new { error = $"Unknown site '{siteId}'." });
 
+            // An article belongs to the client its document was uploaded for. Drafts go only there.
+            if (article.SiteId is null)
+                return Results.Json(new { error = "This article's document has no client. Re-upload the document and choose its client.", refused = "no_client" },
+                                    statusCode: StatusCodes.Status409Conflict);
+            if (!string.Equals(article.SiteId, siteId, StringComparison.OrdinalIgnoreCase))
+                return Results.Json(new { error = $"This article belongs to client '{article.SiteId}'. Drafts can only be sent to that client.", refused = "wrong_client" },
+                                    statusCode: StatusCodes.Status409Conflict);
+
             if (!TryCreateClient(registry, site, out var client, out var error)) return error!;
             using (client)
             {
@@ -177,6 +185,7 @@ public static class ArticleEndpoints
         isUnverified = a.IsUnverified,
         sourceDocumentId = a.SourceDocumentId,
         sourceCandidateId = a.SourceCandidateId,
+        clientSiteId = a.SiteId,
         slug = a.Slug,
         canonicalPath = a.CanonicalPath,
         seoTitle = a.SeoTitle,
@@ -191,6 +200,7 @@ public static class ArticleEndpoints
     private static string[] BlockersFor(Article article, IReadOnlyList<Swan.Domain.Content.ArticleImage> images)
     {
         var reasons = new List<string>();
+        if (article.SiteId is null) reasons.Add("This article has no client. Re-upload its document and choose the client.");
         if (article.FeaturedMediaId is null) reasons.Add("Upload a featured image.");
         reasons.AddRange(images.Where(i => i.Problem is not null).Select(i => i.Problem!));
         return reasons.ToArray();

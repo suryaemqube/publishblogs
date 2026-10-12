@@ -29,9 +29,14 @@ public sealed class DocumentIngestion(SwanDbContext db, LocalFileStore files, Ti
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
     private readonly Dictionary<string, MediaFile> _addedThisUpload = new(StringComparer.Ordinal);
 
+    /// <param name="siteId">
+    /// The client the document is for. Required. A file already uploaded keeps the client it was first uploaded for
+    /// (the same file cannot be stored twice), so the response carries that client.
+    /// </param>
     public async Task<IngestionOutcome> IngestAsync(
         byte[] bytes,
         string fileName,
+        string siteId,
         Guid userId,
         bool importAnyway,
         bool userMayImportUnverified,
@@ -41,6 +46,8 @@ public sealed class DocumentIngestion(SwanDbContext db, LocalFileStore files, Ti
         var safeName = Path.GetFileName(fileName);
         if (string.IsNullOrWhiteSpace(safeName) || !safeName.EndsWith(".docx", StringComparison.OrdinalIgnoreCase))
             throw new DocxFormatException("Only .docx files can be uploaded.");
+        if (string.IsNullOrWhiteSpace(siteId))
+            throw new DocxFormatException("Choose the client this document is for.");
 
         var hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
         _addedThisUpload.Clear();
@@ -68,6 +75,7 @@ public sealed class DocumentIngestion(SwanDbContext db, LocalFileStore files, Ti
             FileSizeBytes = bytes.Length,
             ContentHash = hash,
             StorageKey = $"{hash}.docx",
+            SiteId = siteId,
             TotalParagraphs = package.Paragraphs.Count,
             UploadedByUserId = userId,
             UploadedUtc = now,

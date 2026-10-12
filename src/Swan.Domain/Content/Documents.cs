@@ -24,6 +24,12 @@ public sealed class ArticleDocument
     public Guid UploadedByUserId { get; set; }
     public DateTime UploadedUtc { get; set; }
     public bool ImportedWithOverride { get; set; }
+
+    /// <summary>
+    /// The client this document is for, chosen at upload. Articles inherit it. Null only for documents uploaded
+    /// before clients were chosen at upload.
+    /// </summary>
+    public string? SiteId { get; set; }
 }
 
 /// <summary>An article proposed by the split. No Article exists until the writer accepts it (PLAN-v2 §6.1).</summary>

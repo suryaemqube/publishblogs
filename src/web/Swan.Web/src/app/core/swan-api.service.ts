@@ -45,6 +45,7 @@ export interface DocumentSummary {
   uploadedUtc: string;
   fileSizeBytes: number;
   candidates: number;
+  clientSiteId: string | null;
 }
 
 export interface LinkIssue {
@@ -109,6 +110,7 @@ export interface DocumentDetail {
   fileSizeBytes: number;
   totalParagraphs: number;
   importedWithOverride: boolean;
+  clientSiteId: string | null;
   duplicate: boolean;
   report: ConversionReport;
   candidates: ProposedArticle[];
@@ -116,6 +118,7 @@ export interface DocumentDetail {
 
 export interface ArticleRecord {
   id: string;
+  clientSiteId: string | null;
   featuredImage: { mediaId: string; altText: string } | null;
   title: string;
   status: string;
@@ -167,9 +170,16 @@ export class SwanApiService {
     return this.http.get<DocumentDetail>(`${SWAN_API_BASE}/documents/${encodeURIComponent(id)}`);
   }
 
-  uploadDocument(file: File, importAnyway: boolean): Observable<DocumentDetail> {
+  /** Sets the client on a document that has none. The server refuses to change a client once set. */
+  setDocumentClient(documentId: string, siteId: string): Observable<{ clientSiteId: string; articlesUpdated: number }> {
+    return this.http.put<{ clientSiteId: string; articlesUpdated: number }>(
+      `${SWAN_API_BASE}/documents/${encodeURIComponent(documentId)}/client`, { siteId });
+  }
+
+  uploadDocument(file: File, siteId: string, importAnyway: boolean): Observable<DocumentDetail> {
     const form = new FormData();
     form.append('file', file, file.name);
+    form.append('siteId', siteId);
     form.append('importAnyway', importAnyway ? 'true' : 'false');
     return this.http.post<DocumentDetail>(`${SWAN_API_BASE}/documents`, form);
   }

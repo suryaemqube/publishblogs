@@ -53,6 +53,9 @@ namespace Swan.Infrastructure.Persistence.Migrations
                     b.Property<string>("SeoTitle")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("SiteId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Slug")
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
@@ -173,6 +176,9 @@ namespace Swan.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("ReportJson")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SiteId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Status")
