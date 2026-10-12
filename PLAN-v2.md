@@ -102,6 +102,12 @@ Until it ships, emoversuae needs a different integration path or stays manual.
 
 #### A3. The corrected client-side change
 
+> **Correction (12 Oct 2026):** the `move-on` taxonomy is **`stories-category`**, not `blog`. The category
+> filter on the live site (`edit.php?stories-category=…&post_type=move-on`) uses it, and it is shared with the
+> `stories` post type. `show_in_rest => true` must be set on `stories-category`. Live state after the client's
+> first change: `move-on` is REST-readable (200, rest_base `move-on`), but the type lists no attached taxonomies
+> and `stories-category` returns 403, so it is still not readable. The `blog` steps below do not apply to this client.
+
 Per decision L, the existing `move-on` registration and all URLs on it are preserved. The only
 client-side change is adding `'show_in_rest' => true` to the two registrations that already exist.
 **Do not add the `register_post_type` call from the snippet** — that is what would create the
