@@ -88,6 +88,10 @@ public sealed class WordPressRestClient : IDisposable
     public Task<WpResponse> PostJsonAsync(string path, object body, CancellationToken ct = default) =>
         SendAsync(HttpMethod.Post, path, body, ct);
 
+    /// <summary>OPTIONS returns the endpoint schema, including the meta keys registered for REST. Read-only.</summary>
+    public Task<WpResponse> OptionsAsync(string path, CancellationToken ct = default) =>
+        SendAsync(HttpMethod.Options, path, null, ct);
+
     /// <summary>Posts raw bytes (used for media uploads). The caller sets Content-Type and Content-Disposition.</summary>
     public async Task<WpResponse> PostBytesAsync(string path, byte[] bytes, string mimeType, string fileName, CancellationToken ct = default)
     {

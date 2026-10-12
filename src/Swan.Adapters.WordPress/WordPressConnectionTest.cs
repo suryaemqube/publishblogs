@@ -10,7 +10,11 @@ namespace Swan.Adapters.WordPress;
 /// </summary>
 public sealed class WordPressConnectionTest(WordPressRestClient client)
 {
-    public async Task<ConnectionTestReport> RunAsync(CancellationToken ct = default)
+    /// <summary>
+    /// Runs the checks. <paramref name="requiredMetaKeys"/> are meta keys that must be exposed over REST for the post
+    /// type (for example Yoast keys, when Swan writes them). Null or empty skips that check.
+    /// </summary>
+    public async Task<ConnectionTestReport> RunAsync(CancellationToken ct = default, IReadOnlyList<string>? requiredMetaKeys = null)
     {
         var checks = new List<ConnectionCheck>();
         var opts = client.Options;
@@ -56,6 +60,31 @@ public sealed class WordPressConnectionTest(WordPressRestClient client)
         {
             checks.Add(new ConnectionCheck("Post type REST-exposed", false,
                 $"'{opts.PostTypeKey}' not found: {Describe(type)}"));
+        }
+
+        // 3b. Meta keys Swan writes must be registered for REST, or WordPress drops them without an error.
+        if (requiredMetaKeys is { Count: > 0 } && type.Ok)
+        {
+            var restBase = Uri.EscapeDataString(opts.RestBase);
+            var schema = await client.OptionsAsync($"/wp-json/wp/v2/{restBase}", ct);
+            if (!schema.Ok)
+            {
+                checks.Add(new ConnectionCheck("Meta keys exposed over REST", false,
+                    $"Could not read the '{opts.RestBase}' schema: {Describe(schema)}"));
+            }
+            else
+            {
+                var exposed = schema.Body?["schema"]?["properties"]?["meta"]?["properties"] is System.Text.Json.Nodes.JsonObject meta
+                    ? meta.Select(p => p.Key).ToHashSet(StringComparer.Ordinal)
+                    : new HashSet<string>(StringComparer.Ordinal);
+                var missing = requiredMetaKeys.Where(k => !exposed.Contains(k)).ToList();
+                checks.Add(new ConnectionCheck("Meta keys exposed over REST",
+                    missing.Count == 0,
+                    missing.Count == 0
+                        ? $"all {requiredMetaKeys.Count} keys are registered for '{opts.PostTypeKey}'"
+                        : $"not registered for '{opts.PostTypeKey}': {string.Join(", ", missing)}. " +
+                          "WordPress ignores these values silently. Install the REST meta snippet on the site (see the setup note)."));
+            }
         }
 
         // 4. Each taxonomy attached to the post type is readable. rest_base is read, never derived.

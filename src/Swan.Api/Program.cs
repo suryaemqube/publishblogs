@@ -162,7 +162,9 @@ sites.MapGet("/{id}/connection-test", async (string id, SiteRegistry registry, C
     if (!TryCreateClient(registry, site, out var client, out var error)) return error!;
     using (client)
     {
-        var report = await new WordPressConnectionTest(client!).RunAsync(ct);
+        // Yoast keys are only needed when Swan writes them; otherwise a missing key is not a problem.
+        var report = await new WordPressConnectionTest(client!).RunAsync(ct,
+            site.WriteYoastMeta ? WordPressContentPublisher.YoastMetaKeys : null);
         return Results.Ok(report);
     }
 }).RequireAuthorization(PermissionKeys.SiteRead);

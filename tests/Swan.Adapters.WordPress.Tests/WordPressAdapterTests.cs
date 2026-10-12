@@ -120,6 +120,67 @@ public class WordPressAdapterTests
     }
 
     [Fact]
+    public async Task Yoast_meta_check_passes_when_the_keys_are_registered_for_rest()
+    {
+        var fake = new FakeWordPress(r => r.RequestUri!.AbsolutePath switch
+        {
+            "/wp-json/" => (HttpStatusCode.OK, """{"name":"Client","namespaces":["wp/v2"]}"""),
+            "/wp-json/wp/v2/users/me" => (HttpStatusCode.OK, """{"name":"writer"}"""),
+            "/wp-json/wp/v2/types/blogs" => (HttpStatusCode.OK, """{"rest_base":"blogs","taxonomies":[]}"""),
+            "/wp-json/wp/v2/blogs" => (HttpStatusCode.OK,
+                """{"schema":{"properties":{"meta":{"properties":{"_yoast_wpseo_title":{},"_yoast_wpseo_metadesc":{},"footnotes":{}}}}}}"""),
+            _ => (HttpStatusCode.NotFound, """{"code":"rest_no_route"}"""),
+        });
+        using var client = Client(fake);
+
+        var report = await new WordPressConnectionTest(client).RunAsync(default, WordPressContentPublisher.YoastMetaKeys);
+
+        Assert.True(report.Passed, string.Join("; ", report.Checks.Where(c => !c.Passed).Select(c => c.Name + ": " + c.Detail)));
+        Assert.Contains(report.Checks, c => c.Name == "Meta keys exposed over REST" && c.Passed);
+    }
+
+    [Fact]
+    public async Task Yoast_meta_check_fails_and_names_the_keys_when_the_site_does_not_expose_them()
+    {
+        var fake = new FakeWordPress(r => r.RequestUri!.AbsolutePath switch
+        {
+            "/wp-json/" => (HttpStatusCode.OK, """{"name":"Client","namespaces":["wp/v2"]}"""),
+            "/wp-json/wp/v2/users/me" => (HttpStatusCode.OK, """{"name":"writer"}"""),
+            "/wp-json/wp/v2/types/blogs" => (HttpStatusCode.OK, """{"rest_base":"blogs","taxonomies":[]}"""),
+            "/wp-json/wp/v2/blogs" => (HttpStatusCode.OK,
+                """{"schema":{"properties":{"meta":{"properties":{"inline_featured_image":{},"footnotes":{}}}}}}"""),
+            _ => (HttpStatusCode.NotFound, """{"code":"rest_no_route"}"""),
+        });
+        using var client = Client(fake);
+
+        var report = await new WordPressConnectionTest(client).RunAsync(default, WordPressContentPublisher.YoastMetaKeys);
+
+        Assert.False(report.Passed);
+        var check = Assert.Single(report.Checks, c => c.Name == "Meta keys exposed over REST");
+        Assert.False(check.Passed);
+        Assert.Contains("_yoast_wpseo_title", check.Detail);
+        Assert.Contains("_yoast_wpseo_metadesc", check.Detail);
+    }
+
+    [Fact]
+    public async Task Connection_test_without_required_meta_keys_does_not_check_them()
+    {
+        var fake = new FakeWordPress(r => r.RequestUri!.AbsolutePath switch
+        {
+            "/wp-json/" => (HttpStatusCode.OK, """{"name":"Client","namespaces":["wp/v2"]}"""),
+            "/wp-json/wp/v2/users/me" => (HttpStatusCode.OK, """{"name":"writer"}"""),
+            "/wp-json/wp/v2/types/blogs" => (HttpStatusCode.OK, """{"rest_base":"blogs","taxonomies":[]}"""),
+            _ => (HttpStatusCode.NotFound, """{"code":"rest_no_route"}"""),
+        });
+        using var client = Client(fake);
+
+        var report = await new WordPressConnectionTest(client).RunAsync();
+
+        Assert.DoesNotContain(report.Checks, c => c.Name == "Meta keys exposed over REST");
+        Assert.True(report.Passed);
+    }
+
+    [Fact]
     public async Task Connection_test_fails_when_post_type_is_withheld_from_rest_with_401_not_404()
     {
         var fake = new FakeWordPress(r => r.RequestUri!.AbsolutePath switch

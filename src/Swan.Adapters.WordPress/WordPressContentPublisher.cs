@@ -14,8 +14,9 @@ namespace Swan.Adapters.WordPress;
 public sealed class WordPressContentPublisher(WordPressRestClient client, bool writeYoastMeta = false) : IContentPublisher
 {
     // Yoast SEO meta keys. Writable over REST only after the client registers them with show_in_rest (see docs).
-    internal const string YoastTitleKey = "_yoast_wpseo_title";
-    internal const string YoastDescriptionKey = "_yoast_wpseo_metadesc";
+    public const string YoastTitleKey = "_yoast_wpseo_title";
+    public const string YoastDescriptionKey = "_yoast_wpseo_metadesc";
+    public static readonly string[] YoastMetaKeys = [YoastTitleKey, YoastDescriptionKey];
 
     public async Task<RemoteDraftResult> CreateDraftAsync(DraftRequest request, CancellationToken ct = default)
     {
