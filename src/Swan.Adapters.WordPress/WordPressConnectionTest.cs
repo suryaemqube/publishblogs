@@ -14,7 +14,14 @@ public sealed class WordPressConnectionTest(WordPressRestClient client)
     /// Runs the checks. <paramref name="requiredMetaKeys"/> are meta keys that must be exposed over REST for the post
     /// type (for example Yoast keys, when Swan writes them). Null or empty skips that check.
     /// </summary>
-    public async Task<ConnectionTestReport> RunAsync(CancellationToken ct = default, IReadOnlyList<string>? requiredMetaKeys = null)
+    /// <param name="requiredTaxonomies">
+    /// Taxonomies Swan must write to (for example the category editors use). Each must be attached to the post type
+    /// AND readable over REST. The post type's own list is not trusted on its own: a taxonomy can be used on the site
+    /// while the type reports none.
+    /// </param>
+    public async Task<ConnectionTestReport> RunAsync(CancellationToken ct = default,
+        IReadOnlyList<string>? requiredMetaKeys = null,
+        IReadOnlyList<string>? requiredTaxonomies = null)
     {
         var checks = new List<ConnectionCheck>();
         var opts = client.Options;
@@ -87,8 +94,21 @@ public sealed class WordPressConnectionTest(WordPressRestClient client)
             }
         }
 
-        // 4. Each taxonomy attached to the post type is readable. rest_base is read, never derived.
-        foreach (var name in typeTaxonomies)
+        // 4. Each taxonomy attached to the post type, and each required taxonomy, is readable.
+        //    rest_base is read from the site, never derived.
+        if (requiredTaxonomies is { Count: > 0 } && type.Ok)
+        {
+            foreach (var required in requiredTaxonomies)
+            {
+                if (typeTaxonomies.Contains(required, StringComparer.Ordinal)) continue;
+                checks.Add(new ConnectionCheck($"Taxonomy '{required}' attached to post type", false,
+                    $"'{required}' is configured for Swan but '{opts.PostTypeKey}' does not list it. Editors' categories would not be written. " +
+                    "Attach the taxonomy to the post type and set show_in_rest => true on it."));
+            }
+            typeTaxonomies.AddRange(requiredTaxonomies.Where(r => !typeTaxonomies.Contains(r, StringComparer.Ordinal)));
+        }
+
+        foreach (var name in typeTaxonomies.Distinct(StringComparer.Ordinal))
         {
             var t = await client.GetAsync($"/wp-json/wp/v2/taxonomies/{Uri.EscapeDataString(name)}", ct);
             checks.Add(new ConnectionCheck($"Taxonomy '{name}'",

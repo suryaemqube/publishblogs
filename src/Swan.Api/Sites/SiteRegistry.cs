@@ -24,6 +24,12 @@ public sealed class SiteConfig
     /// meta keys with show_in_rest (see the client setup note), otherwise WordPress ignores them silently.
     /// </summary>
     public bool WriteYoastMeta { get; set; }
+
+    /// <summary>
+    /// Taxonomies Swan writes to, by REST-visible name (for example "category" or "stories-category").
+    /// The connection test requires each one to be attached to the post type and readable over REST.
+    /// </summary>
+    public List<string> Taxonomies { get; set; } = [];
 }
 
 public sealed record SiteSummary(string Id, string Name, string RestOrigin, string PostTypeKey, string RestBase);

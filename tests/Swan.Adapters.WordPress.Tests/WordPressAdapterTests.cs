@@ -162,6 +162,68 @@ public class WordPressAdapterTests
         Assert.Contains("_yoast_wpseo_metadesc", check.Detail);
     }
 
+    private static WordPressSiteOptions MoveOnOptions() => new(Origin, "move-on", "move-on", "u", "p");
+
+    [Fact]
+    public async Task Required_taxonomy_passes_when_attached_and_readable()
+    {
+        var fake = new FakeWordPress(r => r.RequestUri!.AbsolutePath switch
+        {
+            "/wp-json/" => (HttpStatusCode.OK, """{"name":"Client","namespaces":["wp/v2"]}"""),
+            "/wp-json/wp/v2/users/me" => (HttpStatusCode.OK, """{"name":"writer"}"""),
+            "/wp-json/wp/v2/types/move-on" => (HttpStatusCode.OK, """{"rest_base":"move-on","taxonomies":["stories-category"]}"""),
+            "/wp-json/wp/v2/taxonomies/stories-category" => (HttpStatusCode.OK, """{"rest_base":"stories-category"}"""),
+            _ => (HttpStatusCode.NotFound, """{"code":"rest_no_route"}"""),
+        });
+        using var client = Client(fake, MoveOnOptions());
+
+        var report = await new WordPressConnectionTest(client).RunAsync(default, null, ["stories-category"]);
+
+        Assert.True(report.Passed, string.Join("; ", report.Checks.Where(c => !c.Passed).Select(c => c.Name + ": " + c.Detail)));
+        Assert.Contains(report.Checks, c => c.Name == "Taxonomy 'stories-category'" && c.Passed);
+    }
+
+    [Fact]
+    public async Task Required_taxonomy_fails_when_the_post_type_does_not_list_it_even_if_readable()
+    {
+        // emoversuae today: the type lists no taxonomies, so the category would never be written.
+        var fake = new FakeWordPress(r => r.RequestUri!.AbsolutePath switch
+        {
+            "/wp-json/" => (HttpStatusCode.OK, """{"name":"Client","namespaces":["wp/v2"]}"""),
+            "/wp-json/wp/v2/users/me" => (HttpStatusCode.OK, """{"name":"writer"}"""),
+            "/wp-json/wp/v2/types/move-on" => (HttpStatusCode.OK, """{"rest_base":"move-on","taxonomies":[]}"""),
+            "/wp-json/wp/v2/taxonomies/stories-category" => (HttpStatusCode.OK, """{"rest_base":"stories-category"}"""),
+            _ => (HttpStatusCode.NotFound, """{"code":"rest_no_route"}"""),
+        });
+        using var client = Client(fake, MoveOnOptions());
+
+        var report = await new WordPressConnectionTest(client).RunAsync(default, null, ["stories-category"]);
+
+        Assert.False(report.Passed);
+        var check = Assert.Single(report.Checks, c => c.Name == "Taxonomy 'stories-category' attached to post type");
+        Assert.False(check.Passed);
+        Assert.Contains("stories-category", check.Detail);
+    }
+
+    [Fact]
+    public async Task Required_taxonomy_fails_when_it_is_not_readable_over_rest()
+    {
+        var fake = new FakeWordPress(r => r.RequestUri!.AbsolutePath switch
+        {
+            "/wp-json/" => (HttpStatusCode.OK, """{"name":"Client","namespaces":["wp/v2"]}"""),
+            "/wp-json/wp/v2/users/me" => (HttpStatusCode.OK, """{"name":"writer"}"""),
+            "/wp-json/wp/v2/types/move-on" => (HttpStatusCode.OK, """{"rest_base":"move-on","taxonomies":["stories-category"]}"""),
+            "/wp-json/wp/v2/taxonomies/stories-category" => (HttpStatusCode.Forbidden, """{"code":"rest_forbidden"}"""),
+            _ => (HttpStatusCode.NotFound, """{"code":"rest_no_route"}"""),
+        });
+        using var client = Client(fake, MoveOnOptions());
+
+        var report = await new WordPressConnectionTest(client).RunAsync(default, null, ["stories-category"]);
+
+        Assert.False(report.Passed);
+        Assert.Contains(report.Checks, c => c.Name == "Taxonomy 'stories-category'" && !c.Passed);
+    }
+
     [Fact]
     public async Task Connection_test_without_required_meta_keys_does_not_check_them()
     {
