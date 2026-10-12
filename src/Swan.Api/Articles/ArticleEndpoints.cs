@@ -32,6 +32,50 @@ public static class ArticleEndpoints
 
         var group = app.MapGroup("/api/articles").RequireAuthorization(PermissionKeys.ArticleWrite);
 
+        // Featured image: one per article, with required alt text. Checked by file signature (PLAN-v2 §8.2).
+        group.MapPost("/{id:guid}/featured-image", async (Guid id, HttpRequest request, ArticleService articles,
+                                                          FeaturedImageService images, ClaimsPrincipal principal,
+                                                          HttpContext http, CancellationToken ct) =>
+        {
+            var article = await articles.GetAsync(id, ct);
+            if (article is null) return Results.NotFound(new { error = "Article not found." });
+            if (!request.HasFormContentType) return Results.BadRequest(new { error = "Send the image as multipart form data." });
+
+            var form = await request.ReadFormAsync(ct);
+            var file = form.Files.GetFile("file");
+            if (file is null) return Results.BadRequest(new { error = "Choose an image file." });
+            if (file.Length > FeaturedImageService.MaxBytes) return Results.BadRequest(new { error = "The image is larger than 10 MB." });
+
+            byte[] bytes;
+            using (var ms = new MemoryStream())
+            {
+                await file.CopyToAsync(ms, ct);
+                bytes = ms.ToArray();
+            }
+
+            try
+            {
+                var userId = Guid.Parse(principal.FindFirstValue("sub")!);
+                var media = await images.SetAsync(article, bytes, file.FileName, form["altText"].ToString(), userId,
+                                                  http.Connection.RemoteIpAddress?.ToString(), ct);
+                return Results.Ok(new { mediaId = media.Id, fileName = media.FileName, mimeType = media.MimeType, altText = form["altText"].ToString().Trim() });
+            }
+            catch (ImageRejectedException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        });
+
+        group.MapGet("/{id:guid}/featured-image", async (Guid id, ArticleService articles, FeaturedImageService images, CancellationToken ct) =>
+        {
+            var article = await articles.GetAsync(id, ct);
+            if (article is null) return Results.NotFound(new { error = "Article not found." });
+            var image = await images.ReadAsync(article, ct);
+            return image is null
+                ? Results.NotFound(new { error = "No featured image yet." })
+                : Results.File(image.Value.Bytes, image.Value.Media.MimeType);
+        });
+
         group.MapGet("/", async (ArticleService articles, CancellationToken ct) =>
             Results.Ok((await articles.ListAsync(ct)).Select(ToDto)));
 
@@ -127,6 +171,7 @@ public static class ArticleEndpoints
         seoTitle = a.SeoTitle,
         metaDescription = a.MetaDescription,
         contentHtml = a.ContentHtml,
+        featuredImage = a.FeaturedMediaId is null ? null : new { mediaId = a.FeaturedMediaId, altText = a.FeaturedAltText },
         createdUtc = a.CreatedUtc,
         updatedUtc = a.UpdatedUtc,
     };

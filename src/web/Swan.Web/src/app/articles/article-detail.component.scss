@@ -15,6 +15,18 @@
   word-break: break-word;
 }
 
+.featured-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+}
+
+.stack > * + * {
+  margin-top: 10px;
+}
+
 .site-row {
   display: flex;
   align-items: center;

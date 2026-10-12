@@ -10,7 +10,6 @@ using Swan.Api.Cli;
 using Swan.Api.Documents;
 using Swan.Api.Articles;
 using Swan.Infrastructure.Content;
-using Swan.Infrastructure.Content;
 using Swan.Infrastructure.Storage;
 using Swan.Api.Sites;
 using Swan.Domain.Identity;
@@ -51,6 +50,7 @@ builder.Services.AddSingleton(new LocalFileStore(LocalFileStore.DefaultRoot()));
 builder.Services.AddScoped<DocumentIngestion>();
 builder.Services.AddScoped<ArticleService>();
 builder.Services.AddScoped<DraftSync>();
+builder.Services.AddScoped<FeaturedImageService>();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -245,4 +245,5 @@ static object TokenResponse(TokenPair p) => new
 public sealed record CreateDraftRequest(string Title, string ContentHtml, string? Excerpt, string? Slug);
 public sealed record LoginBody(string Email, string Password);
 public sealed record RefreshBody(string? RefreshToken);
+
 

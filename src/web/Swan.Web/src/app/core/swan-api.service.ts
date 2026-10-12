@@ -104,6 +104,7 @@ export interface DocumentDetail {
 
 export interface ArticleRecord {
   id: string;
+  featuredImage: { mediaId: string; altText: string } | null;
   title: string;
   status: string;
   isUnverified: boolean;
@@ -174,6 +175,18 @@ export class SwanApiService {
 
   article(id: string): Observable<ArticleDetail> {
     return this.http.get<ArticleDetail>(`${SWAN_API_BASE}/articles/${encodeURIComponent(id)}`);
+  }
+
+  uploadFeaturedImage(articleId: string, file: File, altText: string): Observable<{ mediaId: string; fileName: string; altText: string }> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    form.append('altText', altText);
+    return this.http.post<{ mediaId: string; fileName: string; altText: string }>(
+      `${SWAN_API_BASE}/articles/${encodeURIComponent(articleId)}/featured-image`, form);
+  }
+
+  featuredImage(articleId: string): Observable<Blob> {
+    return this.http.get(`${SWAN_API_BASE}/articles/${encodeURIComponent(articleId)}/featured-image`, { responseType: 'blob' });
   }
 
   sendDraft(articleId: string, siteId: string): Observable<DraftSendResult> {

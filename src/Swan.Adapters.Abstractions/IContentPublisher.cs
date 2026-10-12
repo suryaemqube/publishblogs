@@ -8,7 +8,14 @@ public sealed record DraftRequest(
     string? Excerpt = null,
     string? Slug = null,
     string? SeoTitle = null,
-    string? MetaDescription = null);
+    string? MetaDescription = null,
+    long? FeaturedMediaId = null);
+
+/// <summary>An image to put in a site's media library.</summary>
+public sealed record MediaUpload(byte[] Bytes, string FileName, string MimeType, string AltText);
+
+/// <summary>A media-library item on a site.</summary>
+public sealed record RemoteMedia(long RemoteId, string? Url);
 
 /// <summary>What the remote site reports after a draft is written.</summary>
 public sealed record RemoteDraftResult(
@@ -33,6 +40,9 @@ public interface IContentPublisher
 
     /// <summary>Returns null when the post does not exist on the site.</summary>
     Task<RemotePostInfo?> GetPostAsync(long remoteId, CancellationToken ct = default);
+
+    /// <summary>Uploads an image to the site's media library, with its alt text.</summary>
+    Task<RemoteMedia> UploadMediaAsync(MediaUpload upload, CancellationToken ct = default);
 }
 
 /// <summary>Thrown when a site has no configured publisher. Fails loudly, never silently skips.</summary>
@@ -54,6 +64,7 @@ public sealed class NoOpContentPublisher : IContentPublisher
     public Task<RemoteDraftResult> CreateDraftAsync(DraftRequest request, CancellationToken ct = default) => throw NotConfigured;
     public Task<RemoteDraftResult> UpdateDraftAsync(long remoteId, DraftRequest request, CancellationToken ct = default) => throw NotConfigured;
     public Task<RemotePostInfo?> GetPostAsync(long remoteId, CancellationToken ct = default) => throw NotConfigured;
+    public Task<RemoteMedia> UploadMediaAsync(MediaUpload upload, CancellationToken ct = default) => throw NotConfigured;
 }
 
 /// <summary>One line of a connection test result.</summary>

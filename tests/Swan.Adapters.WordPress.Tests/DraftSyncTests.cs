@@ -23,6 +23,7 @@ internal sealed class FakePublisher : IContentPublisher
     public Task<RemoteDraftResult> CreateDraftAsync(DraftRequest request, CancellationToken ct = default)
     {
         Creates++;
+        LastFeaturedMediaId = request.FeaturedMediaId;
         return Task.FromResult(new RemoteDraftResult(4242, "draft", "https://x/?p=4242", "https://x/wp-admin/post.php?post=4242&action=edit"));
     }
 
@@ -34,6 +35,15 @@ internal sealed class FakePublisher : IContentPublisher
 
     public Task<RemotePostInfo?> GetPostAsync(long remoteId, CancellationToken ct = default) =>
         Task.FromResult<RemotePostInfo?>(Exists ? new RemotePostInfo(remoteId, RemoteStatus, null, null) : null);
+
+    public int Uploads { get; private set; }
+    public long? LastFeaturedMediaId { get; private set; }
+
+    public Task<RemoteMedia> UploadMediaAsync(MediaUpload upload, CancellationToken ct = default)
+    {
+        Uploads++;
+        return Task.FromResult(new RemoteMedia(700 + Uploads, "https://x/img.jpg"));
+    }
 }
 
 public sealed class DraftSyncTests : IAsyncLifetime
@@ -63,11 +73,13 @@ public sealed class DraftSyncTests : IAsyncLifetime
         await _conn.DisposeAsync();
     }
 
+    private DraftSync NewSync() => new(_db, new Swan.Infrastructure.Storage.LocalFileStore(Path.Combine(Path.GetTempPath(), "swan-sync-tests")));
+
     [Fact]
     public async Task First_send_creates_a_draft_and_remembers_its_id()
     {
         var pub = new FakePublisher();
-        var outcome = await new DraftSync(_db).SyncAsync(_article, "emqube", pub, Guid.NewGuid(), null);
+        var outcome = await NewSync().SyncAsync(_article, "emqube", pub, Guid.NewGuid(), null);
 
         Assert.Equal(DraftSyncAction.Created, outcome.Action);
         Assert.Equal(1, pub.Creates);
@@ -77,7 +89,7 @@ public sealed class DraftSyncTests : IAsyncLifetime
     [Fact]
     public async Task Second_send_updates_the_same_draft_and_creates_no_duplicate()
     {
-        var sync = new DraftSync(_db);
+        var sync = NewSync();
         var pub = new FakePublisher();
         await sync.SyncAsync(_article, "emqube", pub, Guid.NewGuid(), null);
         var second = await sync.SyncAsync(_article, "emqube", pub, Guid.NewGuid(), null);
@@ -91,7 +103,7 @@ public sealed class DraftSyncTests : IAsyncLifetime
     [Fact]
     public async Task Published_post_is_refused_and_never_updated()
     {
-        var sync = new DraftSync(_db);
+        var sync = NewSync();
         var pub = new FakePublisher();
         await sync.SyncAsync(_article, "emqube", pub, Guid.NewGuid(), null);
 
@@ -104,7 +116,7 @@ public sealed class DraftSyncTests : IAsyncLifetime
     [Fact]
     public async Task Deleted_remote_post_is_refused_rather_than_recreated_silently()
     {
-        var sync = new DraftSync(_db);
+        var sync = NewSync();
         var pub = new FakePublisher();
         await sync.SyncAsync(_article, "emqube", pub, Guid.NewGuid(), null);
 
@@ -192,3 +204,4 @@ public sealed class DraftSyncTests : IAsyncLifetime
         Assert.Equal(2, await _db.Articles.CountAsync()); // the setup article plus the accepted one
     }
 }
+

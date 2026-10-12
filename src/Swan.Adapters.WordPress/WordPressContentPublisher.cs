@@ -85,6 +85,28 @@ public sealed class WordPressContentPublisher(WordPressRestClient client, bool w
             res.Body["slug"]?.ToString());
     }
 
+    public async Task<RemoteMedia> UploadMediaAsync(MediaUpload upload, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(upload);
+        var path = "/wp-json/wp/v2/media";
+        var res = await client.PostBytesAsync(path, upload.Bytes, upload.MimeType, upload.FileName, ct);
+        if (!res.Ok || res.Body is null)
+            throw new WordPressApiException(
+                $"Image upload failed: HTTP {(int)res.Status} {res.ErrorCode} {res.ErrorMessage}".TrimEnd(),
+                res.Status, res.ErrorCode);
+
+        var id = res.Body["id"]?.GetValue<long>() ?? throw new WordPressApiException("Media response had no id.", res.Status, null);
+
+        // Alt text is set in a second call; WordPress does not accept it on upload.
+        var alt = await client.PostJsonAsync($"/wp-json/wp/v2/media/{id}", new Dictionary<string, object?> { ["alt_text"] = upload.AltText }, ct);
+        if (!alt.Ok)
+            throw new WordPressApiException(
+                $"Image uploaded (id {id}) but alt text could not be set: HTTP {(int)alt.Status} {alt.ErrorCode}".TrimEnd(),
+                alt.Status, alt.ErrorCode);
+
+        return new RemoteMedia(id, res.Body["source_url"]?.ToString());
+    }
+
     private Dictionary<string, object?> BuildPayload(DraftRequest request)
     {
         var payload = new Dictionary<string, object?>
@@ -94,6 +116,7 @@ public sealed class WordPressContentPublisher(WordPressRestClient client, bool w
         };
         if (request.Excerpt is not null) payload["excerpt"] = request.Excerpt;
         if (request.Slug is not null) payload["slug"] = request.Slug;
+        if (request.FeaturedMediaId is { } media) payload["featured_media"] = media;
 
         if (writeYoastMeta)
         {

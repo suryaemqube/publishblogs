@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+// Content-Disposition and Content-Type headers come from System.Net.Http.Headers.
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -87,6 +88,22 @@ public sealed class WordPressRestClient : IDisposable
     public Task<WpResponse> PostJsonAsync(string path, object body, CancellationToken ct = default) =>
         SendAsync(HttpMethod.Post, path, body, ct);
 
+    /// <summary>Posts raw bytes (used for media uploads). The caller sets Content-Type and Content-Disposition.</summary>
+    public async Task<WpResponse> PostBytesAsync(string path, byte[] bytes, string mimeType, string fileName, CancellationToken ct = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, path)
+        {
+            Version = new Version(2, 0),
+            VersionPolicy = HttpVersionPolicy.RequestVersionOrLower,
+            Content = new ByteArrayContent(bytes),
+        };
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue(mimeType);
+        request.Content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment") { FileName = fileName };
+
+        using var response = await _http.SendAsync(request, ct);
+        return await ParseAsync(response, ct);
+    }
+
     private async Task<WpResponse> SendAsync(HttpMethod method, string path, object? body, CancellationToken ct)
     {
         // HttpRequestMessage.Version defaults to 1.1 and overrides the client default, so set it per request.
@@ -101,6 +118,11 @@ public sealed class WordPressRestClient : IDisposable
         }
 
         using var response = await _http.SendAsync(request, ct);
+        return await ParseAsync(response, ct);
+    }
+
+    private static async Task<WpResponse> ParseAsync(HttpResponseMessage response, CancellationToken ct)
+    {
         var text = await response.Content.ReadAsStringAsync(ct);
 
         JsonNode? parsed = null;

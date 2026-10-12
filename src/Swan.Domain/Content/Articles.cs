@@ -16,6 +16,8 @@ public sealed class Article
     public string? Slug { get; set; }            // WordPress slug (last path segment)
     public string? CanonicalPath { get; set; }   // full URL path as written in the document
     public bool IsUnverified { get; set; }
+    public Guid? FeaturedMediaId { get; set; }
+    public string? FeaturedAltText { get; set; }
     public string Status { get; set; } = "Draft"; // editorial state; only Draft is used so far (PLAN-v2 §7.1)
     public Guid CreatedByUserId { get; set; }
     public DateTime CreatedUtc { get; set; }

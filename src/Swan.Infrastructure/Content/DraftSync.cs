@@ -3,6 +3,7 @@ using Swan.Adapters.Abstractions;
 using Swan.Domain.Content;
 using Swan.Domain.Identity;
 using Swan.Infrastructure.Persistence;
+using Swan.Infrastructure.Storage;
 
 namespace Swan.Infrastructure.Content;
 
@@ -17,20 +18,26 @@ public sealed record DraftSyncOutcome(DraftSyncAction Action, ArticlePublication
 /// <item>Draft exists and is still a draft on the site: update that post. No second post is created.</item>
 /// <item>Post is published (or otherwise not a draft): refuse. The site is not changed.</item>
 /// </list>
+/// The featured image is uploaded to the site's media library once, then reused (PLAN-v2 §8.2).
 /// </summary>
-public sealed class DraftSync(SwanDbContext db, TimeProvider? clock = null)
+public sealed class DraftSync(SwanDbContext db, LocalFileStore files, TimeProvider? clock = null)
 {
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
 
     public async Task<DraftSyncOutcome> SyncAsync(
         Article article, string siteId, IContentPublisher publisher, Guid userId, string? ip, CancellationToken ct = default)
     {
+        var featuredRemoteId = article.FeaturedMediaId is { } mediaId
+            ? await EnsureMediaOnSiteAsync(article, mediaId, siteId, publisher, userId, ip, ct)
+            : (long?)null;
+
         var request = new DraftRequest(
             Title: article.Title,
             ContentHtml: article.ContentHtml,
             Slug: article.Slug,
             SeoTitle: article.SeoTitle,
-            MetaDescription: article.MetaDescription);
+            MetaDescription: article.MetaDescription,
+            FeaturedMediaId: featuredRemoteId);
 
         var pub = await db.ArticlePublications.FirstOrDefaultAsync(p => p.ArticleId == article.Id && p.SiteId == siteId, ct);
         var now = _clock.GetUtcNow().UtcDateTime;
@@ -65,6 +72,44 @@ public sealed class DraftSync(SwanDbContext db, TimeProvider? clock = null)
         Audit(userId, "publishing.draft.created", article, siteId, created.RemoteId, ip, now);
         await db.SaveChangesAsync(ct);
         return new DraftSyncOutcome(DraftSyncAction.Created, pub, created);
+    }
+
+    /// <summary>Uploads the image to this site once and remembers the media id. Later drafts reuse it.</summary>
+    private async Task<long> EnsureMediaOnSiteAsync(Article article, Guid mediaId, string siteId,
+        IContentPublisher publisher, Guid userId, string? ip, CancellationToken ct)
+    {
+        var existing = await db.RemoteMediaMappings.AsNoTracking()
+            .FirstOrDefaultAsync(m => m.MediaFileId == mediaId && m.SiteId == siteId, ct);
+        if (existing is not null) return existing.RemoteId;
+
+        var media = await db.MediaFiles.AsNoTracking().FirstAsync(m => m.Id == mediaId, ct);
+        var bytes = await files.ReadAsync(media.StorageKey, ct);
+        var alt = string.IsNullOrWhiteSpace(article.FeaturedAltText) ? Path.GetFileNameWithoutExtension(media.FileName) : article.FeaturedAltText!;
+
+        var uploaded = await publisher.UploadMediaAsync(new MediaUpload(bytes, media.FileName, media.MimeType, alt), ct);
+
+        var now = _clock.GetUtcNow().UtcDateTime;
+        db.RemoteMediaMappings.Add(new RemoteMediaMapping
+        {
+            Id = Guid.NewGuid(),
+            MediaFileId = mediaId,
+            SiteId = siteId,
+            RemoteId = uploaded.RemoteId,
+            RemoteUrl = uploaded.Url,
+            CreatedUtc = now,
+        });
+        db.AuditLogs.Add(new AuditLog
+        {
+            UserId = userId,
+            Action = "publishing.media.uploaded",
+            EntityType = "MediaFile",
+            EntityId = mediaId.ToString(),
+            Details = $"site={siteId} remote={uploaded.RemoteId}",
+            IpAddress = ip,
+            CreatedUtc = now,
+        });
+        await db.SaveChangesAsync(ct);
+        return uploaded.RemoteId;
     }
 
     private void Audit(Guid userId, string action, Article article, string siteId, long remoteId, string? ip, DateTime now) =>

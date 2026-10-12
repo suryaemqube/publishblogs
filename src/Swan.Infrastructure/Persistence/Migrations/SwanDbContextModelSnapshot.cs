@@ -37,6 +37,13 @@ namespace Swan.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("FeaturedAltText")
+                        .HasMaxLength(250)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("FeaturedMediaId")
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("IsUnverified")
                         .HasColumnType("INTEGER");
 
@@ -230,6 +237,81 @@ namespace Swan.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("ArticlePublications", (string)null);
+                });
+
+            modelBuilder.Entity("Swan.Domain.Content.MediaFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ByteSize")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MimeType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UploadedByUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UploadedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ContentHash")
+                        .IsUnique();
+
+                    b.ToTable("MediaFiles", (string)null);
+                });
+
+            modelBuilder.Entity("Swan.Domain.Content.RemoteMediaMapping", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("MediaFileId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("RemoteId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RemoteUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SiteId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MediaFileId", "SiteId")
+                        .IsUnique();
+
+                    b.ToTable("RemoteMediaMappings", (string)null);
                 });
 
             modelBuilder.Entity("Swan.Domain.Identity.AuditLog", b =>
@@ -642,6 +724,15 @@ namespace Swan.Infrastructure.Persistence.Migrations
                     b.HasOne("Swan.Domain.Content.Article", null)
                         .WithMany()
                         .HasForeignKey("ArticleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Swan.Domain.Content.RemoteMediaMapping", b =>
+                {
+                    b.HasOne("Swan.Domain.Content.MediaFile", null)
+                        .WithMany()
+                        .HasForeignKey("MediaFileId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

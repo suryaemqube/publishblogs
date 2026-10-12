@@ -17,6 +17,8 @@ public sealed class SwanDbContext(DbContextOptions<SwanDbContext> options) : DbC
     public DbSet<ArticleCandidate> ArticleCandidates => Set<ArticleCandidate>();
     public DbSet<Article> Articles => Set<Article>();
     public DbSet<ArticlePublication> ArticlePublications => Set<ArticlePublication>();
+    public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
+    public DbSet<RemoteMediaMapping> RemoteMediaMappings => Set<RemoteMediaMapping>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -108,6 +110,7 @@ public sealed class SwanDbContext(DbContextOptions<SwanDbContext> options) : DbC
             e.Property(x => x.Status).HasMaxLength(30).IsRequired();
             e.Property(x => x.Slug).HasMaxLength(200);
             e.Property(x => x.CanonicalPath).HasMaxLength(500);
+            e.Property(x => x.FeaturedAltText).HasMaxLength(250);
             e.HasIndex(x => x.SourceCandidateId).IsUnique();
         });
 
@@ -118,6 +121,27 @@ public sealed class SwanDbContext(DbContextOptions<SwanDbContext> options) : DbC
             e.Property(x => x.SiteId).HasMaxLength(100).IsRequired();
             e.HasIndex(x => new { x.ArticleId, x.SiteId }).IsUnique();
             e.HasOne<Article>().WithMany().HasForeignKey(x => x.ArticleId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<MediaFile>(e =>
+        {
+            e.ToTable("MediaFiles");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ContentHash).HasMaxLength(64).IsRequired();
+            e.HasIndex(x => x.ContentHash).IsUnique();
+            e.Property(x => x.StorageKey).HasMaxLength(100).IsRequired();
+            e.Property(x => x.FileName).HasMaxLength(260).IsRequired();
+            e.Property(x => x.MimeType).HasMaxLength(100).IsRequired();
+        });
+
+        b.Entity<RemoteMediaMapping>(e =>
+        {
+            e.ToTable("RemoteMediaMappings");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.SiteId).HasMaxLength(100).IsRequired();
+            e.Property(x => x.RemoteUrl).HasMaxLength(1000);
+            e.HasIndex(x => new { x.MediaFileId, x.SiteId }).IsUnique();
+            e.HasOne<MediaFile>().WithMany().HasForeignKey(x => x.MediaFileId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<AuditLog>(e =>

@@ -24,6 +24,32 @@
 
     <aside>
       <div class="card" style="margin-bottom:20px">
+        <div class="card-h"><h2>Featured image</h2></div>
+        <div class="card-b">
+          @if (imageUrl(); as url) {
+            <img [src]="url" [alt]="d.article.featuredImage?.altText ?? ''" class="featured-preview" />
+            <p class="xs muted" style="margin:6px 0 12px">Alt text: {{ d.article.featuredImage?.altText }}</p>
+          } @else {
+            <p class="small muted" style="margin-top:0">No featured image yet. Add one before publishing; drafts can be sent without it for now.</p>
+          }
+          <div class="stack">
+            <input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" (change)="onImageChosen($event)" aria-label="Choose image" />
+            <div class="field" style="margin:0">
+              <label for="alt">Alt text (describe the image)</label>
+              <input class="input" id="alt" maxlength="250" [value]="imageAlt()" (input)="imageAlt.set($any($event.target).value)" />
+            </div>
+            <button class="btn btn-primary btn-sm" type="button"
+                    [disabled]="!imageFile() || imageAlt().trim().length < 5 || imageBusy()" (click)="uploadImage()">
+              {{ imageBusy() ? 'Uploading...' : (imageUrl() ? 'Replace image' : 'Upload image') }}
+            </button>
+            @if (imageError(); as err) {
+              <div class="alert alert-danger"><p style="margin:0">{{ err }}</p></div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
         <div class="card-h"><h2>SEO</h2></div>
         <div class="card-b">
           <dl class="seo-list">
