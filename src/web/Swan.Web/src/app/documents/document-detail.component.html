@@ -85,6 +85,28 @@
                       </ul>
                     }
                   </div>
+                  @if (a.images.length > 0) {
+                    <div class="seo-box">
+                      <div class="xs muted" style="text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px">Pictures</div>
+                      <table class="tbl">
+                        <tbody>
+                          @for (img of a.images; track img.ordinal) {
+                            <tr>
+                              <td class="strong">{{ img.fileName }}</td>
+                              <td class="muted">{{ img.altText || 'No alt text' }}</td>
+                              <td>
+                                @if (img.ok) { <span class="chip chip-ok"><span class="dot"></span>OK</span> }
+                                @else { <span class="chip chip-danger"><span class="dot"></span>Fix</span> }
+                              </td>
+                            </tr>
+                            @if (img.problem) {
+                              <tr><td colspan="3" class="small" style="color:var(--danger-ink)">{{ img.problem }}</td></tr>
+                            }
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  }
                   <div class="ed-b" style="padding:12px 0 0" [innerHTML]="a.contentHtml"></div>
                 </div>
               }

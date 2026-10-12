@@ -14,11 +14,12 @@ public sealed record DraftSyncOutcome(DraftSyncAction Action, ArticlePublication
 /// <summary>
 /// Creates or updates an article's draft on one site (PLAN-v2 §9.2, the "update, don't duplicate" rule).
 /// <list type="bullet">
+/// <item>Nothing is sent unless the article has a featured image and every inline picture passes the client rules.</item>
 /// <item>No draft on the site yet: create one and remember its post id.</item>
 /// <item>Draft exists and is still a draft on the site: update that post. No second post is created.</item>
 /// <item>Post is published (or otherwise not a draft): refuse. The site is not changed.</item>
 /// </list>
-/// The featured image is uploaded to the site's media library once, then reused (PLAN-v2 §8.2).
+/// Pictures (featured and inline) are uploaded to the site's media library once and reused (PLAN-v2 §8.2).
 /// </summary>
 public sealed class DraftSync(SwanDbContext db, LocalFileStore files, TimeProvider? clock = null)
 {
@@ -27,17 +28,37 @@ public sealed class DraftSync(SwanDbContext db, LocalFileStore files, TimeProvid
     public async Task<DraftSyncOutcome> SyncAsync(
         Article article, string siteId, IContentPublisher publisher, Guid userId, string? ip, CancellationToken ct = default)
     {
-        var featuredRemoteId = article.FeaturedMediaId is { } mediaId
-            ? await EnsureMediaOnSiteAsync(article, mediaId, siteId, publisher, userId, ip, ct)
-            : (long?)null;
+        // Client rule: no draft without a featured image.
+        if (article.FeaturedMediaId is not { } featuredId)
+            throw new DraftBlockedException("A featured image is required before a draft can be sent. Upload one in the Featured image panel.");
+
+        // Client rule: every inline picture must pass the image rules.
+        var pictures = await db.ArticleImages.AsNoTracking()
+            .Where(i => i.CandidateId == article.SourceCandidateId)
+            .OrderBy(i => i.Ordinal)
+            .ToListAsync(ct);
+        var broken = pictures.FirstOrDefault(i => i.Problem is not null);
+        if (broken is not null)
+            throw new DraftBlockedException($"The draft was not sent. {broken.Problem}");
+
+        var featured = await EnsureMediaOnSiteAsync(featuredId, article.FeaturedAltText ?? "", siteId, publisher, userId, ip, ct);
+
+        var content = article.ContentHtml;
+        foreach (var picture in pictures)
+        {
+            var uploaded = await EnsureMediaOnSiteAsync(picture.MediaFileId!.Value, picture.AltText, siteId, publisher, userId, ip, ct);
+            if (uploaded.RemoteUrl is null)
+                throw new DraftBlockedException($"Image {picture.Ordinal} was uploaded but the site did not return its address. Nothing was changed.");
+            content = content.Replace($"src=\"{picture.Token}\"", $"src=\"{uploaded.RemoteUrl}\"");
+        }
 
         var request = new DraftRequest(
             Title: article.Title,
-            ContentHtml: article.ContentHtml,
+            ContentHtml: content,
             Slug: article.Slug,
             SeoTitle: article.SeoTitle,
             MetaDescription: article.MetaDescription,
-            FeaturedMediaId: featuredRemoteId);
+            FeaturedMediaId: featured.RemoteId);
 
         var pub = await db.ArticlePublications.FirstOrDefaultAsync(p => p.ArticleId == article.Id && p.SiteId == siteId, ct);
         var now = _clock.GetUtcNow().UtcDateTime;
@@ -68,28 +89,28 @@ public sealed class DraftSync(SwanDbContext db, LocalFileStore files, TimeProvid
         pub.RemoteLink = created.Link;
         pub.EditUrl = created.EditUrl;
         pub.LastSyncedUtc = now;
-        if (db.Entry(pub).State == EntityState.Detached) db.ArticlePublications.Add(pub);
+        if (db.Entry(pub).State == Microsoft.EntityFrameworkCore.EntityState.Detached) db.ArticlePublications.Add(pub);
         Audit(userId, "publishing.draft.created", article, siteId, created.RemoteId, ip, now);
         await db.SaveChangesAsync(ct);
         return new DraftSyncOutcome(DraftSyncAction.Created, pub, created);
     }
 
-    /// <summary>Uploads the image to this site once and remembers the media id. Later drafts reuse it.</summary>
-    private async Task<long> EnsureMediaOnSiteAsync(Article article, Guid mediaId, string siteId,
+    /// <summary>Uploads an image to this site once and returns its mapping. Later drafts reuse the mapping.</summary>
+    private async Task<RemoteMediaMapping> EnsureMediaOnSiteAsync(Guid mediaId, string alt, string siteId,
         IContentPublisher publisher, Guid userId, string? ip, CancellationToken ct)
     {
         var existing = await db.RemoteMediaMappings.AsNoTracking()
             .FirstOrDefaultAsync(m => m.MediaFileId == mediaId && m.SiteId == siteId, ct);
-        if (existing is not null) return existing.RemoteId;
+        if (existing is not null) return existing;
 
         var media = await db.MediaFiles.AsNoTracking().FirstAsync(m => m.Id == mediaId, ct);
         var bytes = await files.ReadAsync(media.StorageKey, ct);
-        var alt = string.IsNullOrWhiteSpace(article.FeaturedAltText) ? Path.GetFileNameWithoutExtension(media.FileName) : article.FeaturedAltText!;
+        var altText = string.IsNullOrWhiteSpace(alt) ? Path.GetFileNameWithoutExtension(media.FileName) : alt;
 
-        var uploaded = await publisher.UploadMediaAsync(new MediaUpload(bytes, media.FileName, media.MimeType, alt), ct);
+        var uploaded = await publisher.UploadMediaAsync(new MediaUpload(bytes, media.FileName, media.MimeType, altText), ct);
 
         var now = _clock.GetUtcNow().UtcDateTime;
-        db.RemoteMediaMappings.Add(new RemoteMediaMapping
+        var mapping = new RemoteMediaMapping
         {
             Id = Guid.NewGuid(),
             MediaFileId = mediaId,
@@ -97,7 +118,8 @@ public sealed class DraftSync(SwanDbContext db, LocalFileStore files, TimeProvid
             RemoteId = uploaded.RemoteId,
             RemoteUrl = uploaded.Url,
             CreatedUtc = now,
-        });
+        };
+        db.RemoteMediaMappings.Add(mapping);
         db.AuditLogs.Add(new AuditLog
         {
             UserId = userId,
@@ -109,7 +131,7 @@ public sealed class DraftSync(SwanDbContext db, LocalFileStore files, TimeProvid
             CreatedUtc = now,
         });
         await db.SaveChangesAsync(ct);
-        return uploaded.RemoteId;
+        return mapping;
     }
 
     private void Audit(Guid userId, string action, Article article, string siteId, long remoteId, string? ip, DateTime now) =>
@@ -131,6 +153,9 @@ public sealed class RemoteDraftPublishedException(long remoteId, string status)
 {
     public string Status { get; } = status;
 }
+
+/// <summary>The article is not ready to send (no featured image, or an inline picture breaks a rule). Nothing was sent.</summary>
+public sealed class DraftBlockedException(string message) : InvalidOperationException(message);
 
 /// <summary>The remote post no longer exists.</summary>
 public sealed class RemoteDraftMissingException(long remoteId)

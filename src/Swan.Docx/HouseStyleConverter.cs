@@ -12,7 +12,11 @@ public sealed record CandidateDraft(
     string Title,
     string ContentHtml,
     int WordCount,
-    SeoMetadata? Seo = null);
+    SeoMetadata? Seo = null,
+    IReadOnlyList<DocxImageAsset>? Images = null)
+{
+    public IReadOnlyList<DocxImageAsset> ImageAssets => Images ?? [];
+}
 
 public sealed record LinkIssue(int Paragraph, string Href, string Problem);
 
@@ -138,7 +142,7 @@ public static class HouseStyleConverter
                     warnings.Add($"Paragraph {p.Index}: empty Title ignored.");
                     continue;
                 }
-                current = new CandidateBuilder(p.Index, p.Text);
+                current = new CandidateBuilder(p.Index, p.Text, package.Images);
                 continue;
             }
 
@@ -187,7 +191,7 @@ public static class HouseStyleConverter
     /// </summary>
     public static CandidateDraft? ConvertAsSingleUnverifiedArticle(DocxPackage package, string title)
     {
-        var builder = new CandidateBuilder(1, string.IsNullOrWhiteSpace(title) ? "Untitled" : title);
+        var builder = new CandidateBuilder(1, string.IsNullOrWhiteSpace(title) ? "Untitled" : title, package.Images);
         foreach (var p in package.Paragraphs)
         {
             if (p.Style is "SwanLabel" or "SwanNote" or "Title") continue;
@@ -201,12 +205,14 @@ public static class HouseStyleConverter
         private readonly List<DocxParagraph> _body = [];
         private readonly int _from;
         private readonly string _title;
+        private readonly IReadOnlyDictionary<string, DocxImageFile> _images;
         private int _to;
 
-        public CandidateBuilder(int from, string title)
+        public CandidateBuilder(int from, string title, IReadOnlyDictionary<string, DocxImageFile> images)
         {
             _from = from;
             _title = title;
+            _images = images;
             _to = from;
         }
 
@@ -234,9 +240,40 @@ public static class HouseStyleConverter
             }
 
             var seo = SeoParser.Extract(_body, out var bodyParas);
+            var assets = new List<DocxImageAsset>();
 
-            foreach (var p in bodyParas)
+            for (var i = 0; i < bodyParas.Count; i++)
             {
+                var p = bodyParas[i];
+
+                // Pictures: each becomes a figure. A Caption paragraph directly under it becomes its caption.
+                if (p.ImageRefs.Count > 0)
+                {
+                    CloseList();
+                    string? caption = null;
+                    if (i + 1 < bodyParas.Count && bodyParas[i + 1].Style == "Caption" && bodyParas[i + 1].Text.Length > 0)
+                    {
+                        caption = bodyParas[i + 1].Text;
+                        i++;
+                    }
+
+                    foreach (var img in p.ImageRefs)
+                    {
+                        var ordinal = assets.Count + 1;
+                        var token = $"swan-image:{ordinal}";
+                        _images.TryGetValue(img.RelId, out var file);
+                        var problem = ImageRules.Problem(ordinal, p.Index, file?.Bytes, img.AltText);
+                        assets.Add(new DocxImageAsset(ordinal, token, p.Index, file?.FileName ?? "", file is null ? null : ImageRules.DetectMime(file.Bytes),
+                                                      file?.Bytes ?? [], img.AltText, problem));
+
+                        html.Append("<figure><img src=\"").Append(token).Append("\" alt=\"")
+                            .Append(WebUtility.HtmlEncode(img.AltText)).Append("\" />");
+                        if (caption is not null) html.Append("<figcaption>").Append(WebUtility.HtmlEncode(caption)).Append("</figcaption>");
+                        html.Append("</figure>");
+                    }
+                    if (p.Text.Length == 0) continue;
+                }
+
                 if (p.Text.Length == 0 && p.Style != "SwanCta") continue;
 
                 switch (p.Style)
@@ -274,7 +311,7 @@ public static class HouseStyleConverter
             CloseList();
 
             if (html.Length == 0) return null;
-            return new CandidateDraft(index, _from, _to, _title.Trim(), html.ToString(), words + CountWords(_title), seo);
+            return new CandidateDraft(index, _from, _to, _title.Trim(), html.ToString(), words + CountWords(_title), seo, assets);
         }
 
         private static string Inline(DocxParagraph p)

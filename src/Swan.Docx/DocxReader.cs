@@ -20,14 +20,23 @@ public sealed record DocxRun(string Text, bool Bold, bool Italic, string? Href);
 
 /// <param name="Index">1-based paragraph number in the body, as a writer would count them.</param>
 /// <param name="Style">Word style id (for example "Title", "Heading1", "SwanNote"), or null when unstyled.</param>
+/// <summary>A picture inside a paragraph. RelId points at the image part; AltText is Word's Alt Text field.</summary>
+public sealed record DocxImageRef(string RelId, string AltText);
+
+/// <summary>An embedded image file taken from the package.</summary>
+public sealed record DocxImageFile(string FileName, byte[] Bytes);
+
 public sealed record DocxParagraph(
     int Index,
     string? Style,
     IReadOnlyList<DocxRun> Runs,
     int? NumId,
     int ListLevel,
-    bool OrderedList)
+    bool OrderedList,
+    IReadOnlyList<DocxImageRef>? Images = null)
 {
+    public IReadOnlyList<DocxImageRef> ImageRefs => Images ?? [];
+
     public string Text => string.Concat(Runs.Select(r => r.Text)).Trim();
 
     /// <summary>True when every non-empty run is bold. Used only to point writers at unstyled headings.</summary>
@@ -39,6 +48,8 @@ public sealed class DocxPackage
     public required IReadOnlyList<DocxParagraph> Paragraphs { get; init; }
     public required IReadOnlyDictionary<string, string> StyleNames { get; init; }
     public int TableCount { get; init; }
+    /// <summary>Embedded images keyed by relationship id (as used by <see cref="DocxImageRef.RelId"/>).</summary>
+    public IReadOnlyDictionary<string, DocxImageFile> Images { get; init; } = new Dictionary<string, DocxImageFile>();
 }
 
 /// <summary>
@@ -50,6 +61,8 @@ public static class DocxReader
     private static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
     private static readonly XNamespace R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
     private static readonly XNamespace Rel = "http://schemas.openxmlformats.org/package/2006/relationships";
+    private static readonly XNamespace Wp = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
+    private static readonly XNamespace A = "http://schemas.openxmlformats.org/drawingml/2006/main";
 
     public static DocxPackage Read(Stream input, DocxLimits? limits = null)
     {
@@ -78,6 +91,7 @@ public static class DocxReader
         var styleNames = ReadStyles(zip);
         var rels = ReadRelationships(zip);
         var numbering = ReadNumbering(zip);
+        var images = ReadImages(zip);
 
         var doc = Load(documentEntry);
         var body = doc.Root?.Element(W + "body")
@@ -97,7 +111,32 @@ public static class DocxReader
             Paragraphs = paragraphs,
             StyleNames = styleNames,
             TableCount = tables,
+            Images = images,
         };
+    }
+
+    /// <summary>Reads every image part that a relationship points at. Files are read whole, then checked by the caller.</summary>
+    private static Dictionary<string, DocxImageFile> ReadImages(ZipArchive zip)
+    {
+        var result = new Dictionary<string, DocxImageFile>(StringComparer.Ordinal);
+        var entry = zip.GetEntry("word/_rels/document.xml.rels");
+        if (entry is null) return result;
+
+        foreach (var r in Load(entry).Root?.Elements(Rel + "Relationship") ?? [])
+        {
+            var type = (string?)r.Attribute("Type") ?? "";
+            var target = (string?)r.Attribute("Target");
+            var id = (string?)r.Attribute("Id");
+            if (id is null || target is null || !type.EndsWith("/image", StringComparison.Ordinal)) continue;
+
+            var part = zip.GetEntry("word/" + target.TrimStart('/'));
+            if (part is null || part.Length > 25L * 1024 * 1024) continue; // larger than any allowed image: skip
+
+            using var ms = new MemoryStream();
+            using (var s = part.Open()) s.CopyTo(ms);
+            result[id] = new DocxImageFile(Path.GetFileName(target), ms.ToArray());
+        }
+        return result;
     }
 
     private static void GuardZip(ZipArchive zip, DocxLimits limits)
@@ -224,7 +263,17 @@ public static class DocxReader
             }
         }
 
-        return new DocxParagraph(index, style, runs, numId is null ? null : int.Parse(numId), level, ordered);
+        var images = new List<DocxImageRef>();
+        foreach (var drawing in p.Descendants(W + "drawing"))
+        {
+            var blip = drawing.Descendants(A + "blip").FirstOrDefault();
+            var embed = (string?)blip?.Attribute(R + "embed");
+            if (embed is null) continue;
+            var alt = (string?)drawing.Descendants(Wp + "docPr").FirstOrDefault()?.Attribute("descr") ?? "";
+            images.Add(new DocxImageRef(embed, alt.Trim()));
+        }
+
+        return new DocxParagraph(index, style, runs, numId is null ? null : int.Parse(numId), level, ordered, images);
     }
 
     private static DocxRun ParseRun(XElement r, string? href)

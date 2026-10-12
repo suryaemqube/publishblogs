@@ -41,7 +41,7 @@ public static class DocumentEndpoints
             {
                 var outcome = await ingestion.IngestAsync(bytes, file.FileName, userId, importAnyway, mayOverride,
                                                           http.Connection.RemoteIpAddress?.ToString(), ct);
-                var dto = ToDetail(outcome.Document, outcome.Candidates, outcome.Report, outcome.Duplicate);
+                var dto = ToDetail(outcome.Document, outcome.Candidates, outcome.Report, outcome.Duplicate, outcome.Images ?? []);
                 return outcome.Duplicate ? Results.Ok(dto) : Results.Created($"/api/documents/{outcome.Document.Id}", dto);
             }
             catch (DocxFormatException ex)
@@ -75,11 +75,11 @@ public static class DocumentEndpoints
         {
             var doc = await db.ArticleDocuments.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id, ct);
             if (doc is null) return Results.NotFound(new { error = "Document not found." });
-            var (candidates, report) = await ingestion.LoadAsync(doc, ct);
+            var (candidates, report, images) = await ingestion.LoadAsync(doc, ct);
             var accepted = await db.Articles.AsNoTracking()
                 .Where(a => a.SourceDocumentId == doc.Id)
                 .ToDictionaryAsync(a => a.SourceCandidateId, a => a.Id, ct);
-            return Results.Ok(ToDetail(doc, candidates, report, duplicate: false, accepted));
+            return Results.Ok(ToDetail(doc, candidates, report, duplicate: false, images, accepted));
         });
 
         // The house-style template, so writers can start from a conforming file (PLAN-v2 §6.4).
@@ -93,8 +93,22 @@ public static class DocumentEndpoints
         });
     }
 
+    /// <summary>Shape shared by document and article views. Problem is null when the picture can be sent.</summary>
+    public static object ToImageDto(ArticleImage i) => new
+    {
+        ordinal = i.Ordinal,
+        token = i.Token,
+        paragraph = i.ParagraphIndex,
+        fileName = i.FileName,
+        mimeType = i.MimeType,
+        altText = i.AltText,
+        problem = i.Problem,
+        ok = i.Problem is null,
+    };
+
     private static object ToDetail(ArticleDocument doc, IReadOnlyList<ArticleCandidate> candidates,
                                    ConversionResult report, bool duplicate,
+                                   IReadOnlyList<ArticleImage> images,
                                    IReadOnlyDictionary<Guid, Guid>? acceptedArticles = null) => new
     {
         id = doc.Id,
@@ -117,6 +131,7 @@ public static class DocumentEndpoints
             isUnverified = c.IsUnverified,
             state = c.State,
             acceptedArticleId = acceptedArticles is not null && acceptedArticles.TryGetValue(c.Id, out var aid) ? aid : (Guid?)null,
+            images = images.Where(i => i.CandidateId == c.Id).Select(ToImageDto),
             contentHtml = c.ContentHtml,
             seo = new
             {

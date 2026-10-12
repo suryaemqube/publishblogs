@@ -20,10 +20,13 @@ internal sealed class FakePublisher : IContentPublisher
     public int Creates { get; private set; }
     public int Updates { get; private set; }
 
+    public string LastContent { get; private set; } = "";
+
     public Task<RemoteDraftResult> CreateDraftAsync(DraftRequest request, CancellationToken ct = default)
     {
         Creates++;
         LastFeaturedMediaId = request.FeaturedMediaId;
+        LastContent = request.ContentHtml;
         return Task.FromResult(new RemoteDraftResult(4242, "draft", "https://x/?p=4242", "https://x/wp-admin/post.php?post=4242&action=edit"));
     }
 
@@ -58,10 +61,22 @@ public sealed class DraftSyncTests : IAsyncLifetime
         await _conn.OpenAsync();
         _db = new SwanDbContext(new DbContextOptionsBuilder<SwanDbContext>().UseSqlite(_conn).Options);
         await _db.Database.EnsureCreatedAsync();
+        // Drafts need a featured image (client rule). Store a real file so the sync can upload it.
+        var dir = Path.Combine(Path.GetTempPath(), "swan-sync-tests");
+        Directory.CreateDirectory(dir);
+        await File.WriteAllBytesAsync(Path.Combine(dir, "sync-test.jpg"), [0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3, 4]);
+        var media = new MediaFile
+        {
+            Id = Guid.NewGuid(), ContentHash = Guid.NewGuid().ToString("N"), StorageKey = "sync-test.jpg",
+            FileName = "cover.jpg", MimeType = "image/jpeg", ByteSize = 8, UploadedUtc = DateTime.UtcNow,
+        };
+        _db.MediaFiles.Add(media);
+
         _article = new Article
         {
             Id = Guid.NewGuid(), Title = "AI guide", ContentHtml = "<p>x</p>", Slug = "ai-guide",
-            Status = "Draft", CreatedUtc = DateTime.UtcNow, UpdatedUtc = DateTime.UtcNow,
+            Status = "Draft", FeaturedMediaId = media.Id, FeaturedAltText = "A cover photo",
+            CreatedUtc = DateTime.UtcNow, UpdatedUtc = DateTime.UtcNow,
         };
         _db.Articles.Add(_article);
         await _db.SaveChangesAsync();
@@ -177,6 +192,55 @@ public sealed class DraftSyncTests : IAsyncLifetime
         await new WordPressContentPublisher(client, writeYoastMeta: true).CreateDraftAsync(request);
         Assert.Contains("_yoast_wpseo_title", handler.Sent.Single().Body);
         Assert.Contains("_yoast_wpseo_metadesc", handler.Sent.Single().Body);
+    }
+
+    [Fact]
+    public async Task Inline_picture_is_uploaded_and_its_token_replaced_with_the_site_address()
+    {
+        // A different file from the featured image, so it is uploaded separately.
+        var dir = Path.Combine(Path.GetTempPath(), "swan-sync-tests");
+        await File.WriteAllBytesAsync(Path.Combine(dir, "team-test.jpg"), [0xFF, 0xD8, 0xFF, 0xE0, 9, 9, 9, 9]);
+        var media = new MediaFile
+        {
+            Id = Guid.NewGuid(), ContentHash = Guid.NewGuid().ToString("N"), StorageKey = "team-test.jpg",
+            FileName = "team.jpg", MimeType = "image/jpeg", ByteSize = 8, UploadedUtc = DateTime.UtcNow,
+        };
+        _db.MediaFiles.Add(media);
+        _article.SourceCandidateId = Guid.NewGuid();
+        _article.ContentHtml = "<figure><img src=\"swan-image:1\" alt=\"A team\" /></figure>";
+        _db.ArticleImages.Add(new ArticleImage
+        {
+            Id = Guid.NewGuid(), CandidateId = _article.SourceCandidateId, Ordinal = 1, Token = "swan-image:1",
+            ParagraphIndex = 3, MediaFileId = media.Id, FileName = "team.jpg", MimeType = "image/jpeg", AltText = "A team",
+        });
+        await _db.SaveChangesAsync();
+
+        var pub = new FakePublisher();
+        await NewSync().SyncAsync(_article, "emqube", pub, Guid.NewGuid(), null);
+
+        Assert.Equal(2, pub.Uploads); // featured image and the inline picture
+        Assert.Contains("src=\"https://x/img.jpg\"", pub.LastContent);
+        Assert.DoesNotContain("swan-image:1", pub.LastContent);
+    }
+
+    [Fact]
+    public async Task Article_with_a_broken_picture_is_not_sent_at_all()
+    {
+        _article.SourceCandidateId = Guid.NewGuid();
+        _db.ArticleImages.Add(new ArticleImage
+        {
+            Id = Guid.NewGuid(), CandidateId = _article.SourceCandidateId, Ordinal = 1, Token = "swan-image:1",
+            ParagraphIndex = 3, FileName = "chart.png", AltText = "A chart",
+            Problem = "Image 1 (paragraph 3) is a PNG. Save it as JPG or WebP and reinsert it.",
+        });
+        await _db.SaveChangesAsync();
+
+        var pub = new FakePublisher();
+        var ex = await Assert.ThrowsAsync<DraftBlockedException>(() =>
+            NewSync().SyncAsync(_article, "emqube", pub, Guid.NewGuid(), null));
+        Assert.Contains("PNG", ex.Message);
+        Assert.Equal(0, pub.Creates);
+        Assert.Equal(0, pub.Uploads);
     }
 
     [Fact]

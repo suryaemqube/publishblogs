@@ -44,7 +44,7 @@ public static class ArticleEndpoints
             var form = await request.ReadFormAsync(ct);
             var file = form.Files.GetFile("file");
             if (file is null) return Results.BadRequest(new { error = "Choose an image file." });
-            if (file.Length > FeaturedImageService.MaxBytes) return Results.BadRequest(new { error = "The image is larger than 10 MB." });
+            if (file.Length > FeaturedImageService.MaxBytes) return Results.BadRequest(new { error = "The image is larger than 500 KB. Compress it and upload again." });
 
             byte[] bytes;
             using (var ms = new MemoryStream())
@@ -84,7 +84,14 @@ public static class ArticleEndpoints
             var article = await articles.GetAsync(id, ct);
             if (article is null) return Results.NotFound(new { error = "Article not found." });
             var pubs = await articles.PublicationsAsync(id, ct);
-            return Results.Ok(new { article = ToDto(article), publications = pubs.Select(ToPubDto) });
+            var images = await articles.ImagesAsync(article.SourceCandidateId, ct);
+            return Results.Ok(new
+            {
+                article = ToDto(article),
+                publications = pubs.Select(ToPubDto),
+                images = images.Select(Swan.Api.Documents.DocumentEndpoints.ToImageDto),
+                blockers = BlockersFor(article, images),
+            });
         });
 
         // Create or update this article's draft on one site. Published posts are refused (409).
@@ -128,6 +135,10 @@ public static class ArticleEndpoints
                 {
                     return Results.Json(new { error = ex.Message, refused = "published", status = ex.Status },
                                         statusCode: StatusCodes.Status409Conflict);
+                }
+                catch (DraftBlockedException ex)
+                {
+                    return Results.Json(new { error = ex.Message, refused = "not_ready" }, statusCode: StatusCodes.Status422UnprocessableEntity);
                 }
                 catch (RemoteDraftMissingException ex)
                 {
@@ -175,6 +186,15 @@ public static class ArticleEndpoints
         createdUtc = a.CreatedUtc,
         updatedUtc = a.UpdatedUtc,
     };
+
+    /// <summary>Reasons a draft cannot be sent yet. Empty means ready. The same rules are enforced again when sending.</summary>
+    private static string[] BlockersFor(Article article, IReadOnlyList<Swan.Domain.Content.ArticleImage> images)
+    {
+        var reasons = new List<string>();
+        if (article.FeaturedMediaId is null) reasons.Add("Upload a featured image.");
+        reasons.AddRange(images.Where(i => i.Problem is not null).Select(i => i.Problem!));
+        return reasons.ToArray();
+    }
 
     private static object ToPubDto(ArticlePublication p) => new
     {

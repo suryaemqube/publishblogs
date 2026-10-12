@@ -13,7 +13,8 @@ public sealed record IngestionOutcome(
     ArticleDocument Document,
     IReadOnlyList<ArticleCandidate> Candidates,
     ConversionResult Report,
-    bool Duplicate);
+    bool Duplicate,
+    IReadOnlyList<ArticleImage>? Images = null);
 
 /// <summary>Raised when an override is requested without permission. Mapped to 403 by the API.</summary>
 public sealed class OverrideNotPermittedException(string message) : Exception(message);
@@ -25,6 +26,7 @@ public sealed class OverrideNotPermittedException(string message) : Exception(me
 public sealed class DocumentIngestion(SwanDbContext db, LocalFileStore files, TimeProvider? clock = null)
 {
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
+    private readonly Dictionary<string, MediaFile> _addedThisUpload = new(StringComparer.Ordinal);
 
     public async Task<IngestionOutcome> IngestAsync(
         byte[] bytes,
@@ -40,13 +42,14 @@ public sealed class DocumentIngestion(SwanDbContext db, LocalFileStore files, Ti
             throw new DocxFormatException("Only .docx files can be uploaded.");
 
         var hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+        _addedThisUpload.Clear();
 
         // Dedup: the same file is never converted or stored twice.
         var existing = await db.ArticleDocuments.AsNoTracking().FirstOrDefaultAsync(d => d.ContentHash == hash, ct);
         if (existing is not null)
         {
-            var (cands, report) = await LoadAsync(existing, ct);
-            return new IngestionOutcome(existing, cands, report, Duplicate: true);
+            var (cands, report, imgs) = await LoadAsync(existing, ct);
+            return new IngestionOutcome(existing, cands, report, Duplicate: true, imgs);
         }
 
         if (importAnyway && !userMayImportUnverified)
@@ -70,12 +73,18 @@ public sealed class DocumentIngestion(SwanDbContext db, LocalFileStore files, Ti
         };
 
         var candidates = new List<ArticleCandidate>();
+        var images = new List<ArticleImage>();
         ConversionResult stored;
 
         if (conversion.Conforming)
         {
             doc.Status = DocumentStatus.Conforming;
-            candidates.AddRange(conversion.Candidates.Select(c => ToEntity(doc.Id, c, unverified: false)));
+            foreach (var c in conversion.Candidates)
+            {
+                var entity = ToEntity(doc.Id, c, unverified: false);
+                candidates.Add(entity);
+                images.AddRange(await StoreImagesAsync(entity.Id, c.ImageAssets, ct));
+            }
             stored = conversion;
         }
         else if (importAnyway)
@@ -85,7 +94,12 @@ public sealed class DocumentIngestion(SwanDbContext db, LocalFileStore files, Ti
             doc.ImportedWithOverride = true;
             var whole = HouseStyleConverter.ConvertAsSingleUnverifiedArticle(package,
                 Path.GetFileNameWithoutExtension(safeName));
-            if (whole is not null) candidates.Add(ToEntity(doc.Id, whole, unverified: true));
+            if (whole is not null)
+            {
+                var entity = ToEntity(doc.Id, whole, unverified: true);
+                candidates.Add(entity);
+                images.AddRange(await StoreImagesAsync(entity.Id, whole.ImageAssets, ct));
+            }
             stored = conversion;
         }
         else
@@ -100,6 +114,7 @@ public sealed class DocumentIngestion(SwanDbContext db, LocalFileStore files, Ti
         await files.SaveAsync(doc.StorageKey, bytes, ct);
         db.ArticleDocuments.Add(doc);
         db.ArticleCandidates.AddRange(candidates);
+        db.ArticleImages.AddRange(images);
         db.AuditLogs.Add(new AuditLog
         {
             UserId = userId,
@@ -112,18 +127,78 @@ public sealed class DocumentIngestion(SwanDbContext db, LocalFileStore files, Ti
         });
         await db.SaveChangesAsync(ct);
 
-        return new IngestionOutcome(doc, candidates, stored, Duplicate: false);
+        return new IngestionOutcome(doc, candidates, stored, Duplicate: false, images);
     }
 
-    public async Task<(IReadOnlyList<ArticleCandidate> Candidates, ConversionResult Report)> LoadAsync(ArticleDocument doc, CancellationToken ct = default)
+    public async Task<(IReadOnlyList<ArticleCandidate> Candidates, ConversionResult Report, IReadOnlyList<ArticleImage> Images)> LoadAsync(
+        ArticleDocument doc, CancellationToken ct = default)
     {
         var candidates = await db.ArticleCandidates.AsNoTracking()
             .Where(c => c.DocumentId == doc.Id)
             .OrderBy(c => c.CandidateIndex)
             .ToListAsync(ct);
+        var ids = candidates.Select(c => c.Id).ToList();
+        var images = await db.ArticleImages.AsNoTracking()
+            .Where(i => ids.Contains(i.CandidateId))
+            .OrderBy(i => i.Ordinal)
+            .ToListAsync(ct);
         var report = JsonSerializer.Deserialize<ConversionResult>(doc.ReportJson)
                      ?? throw new InvalidOperationException("Stored report could not be read.");
-        return (candidates, report);
+        return (candidates, report, images);
+    }
+
+    /// <summary>
+    /// Stores each valid picture once (by hash) and records one ArticleImage per picture. Pictures with a problem are
+    /// recorded without a file, so the writer can see what to fix.
+    /// </summary>
+    private async Task<List<ArticleImage>> StoreImagesAsync(Guid candidateId, IReadOnlyList<DocxImageAsset> assets, CancellationToken ct)
+    {
+        var rows = new List<ArticleImage>();
+        foreach (var a in assets)
+        {
+            Guid? mediaId = null;
+            if (a.Problem is null && a.MimeType is not null)
+            {
+                var hash = Convert.ToHexString(SHA256.HashData(a.Bytes)).ToLowerInvariant();
+                var media = _addedThisUpload.TryGetValue(hash, out var pending)
+                    ? pending
+                    : await db.MediaFiles.FirstOrDefaultAsync(m => m.ContentHash == hash, ct);
+                if (media is null)
+                {
+                    var ext = a.MimeType == "image/webp" ? ".webp" : ".jpg";
+                    var key = $"{hash}{ext}";
+                    await files.SaveAsync(key, a.Bytes, ct);
+                    media = new MediaFile
+                    {
+                        Id = Guid.NewGuid(),
+                        ContentHash = hash,
+                        StorageKey = key,
+                        FileName = a.FileName.Length > 0 ? a.FileName : $"image{ext}",
+                        MimeType = a.MimeType,
+                        ByteSize = a.Bytes.Length,
+                        UploadedUtc = _clock.GetUtcNow().UtcDateTime,
+                    };
+                    db.MediaFiles.Add(media);
+                    _addedThisUpload[hash] = media;
+                }
+                mediaId = media.Id;
+            }
+
+            rows.Add(new ArticleImage
+            {
+                Id = Guid.NewGuid(),
+                CandidateId = candidateId,
+                Ordinal = a.Ordinal,
+                Token = a.Token,
+                ParagraphIndex = a.ParagraphIndex,
+                MediaFileId = mediaId,
+                FileName = a.FileName,
+                MimeType = a.MimeType,
+                AltText = a.AltText,
+                Problem = a.Problem,
+            });
+        }
+        return rows;
     }
 
     private static ArticleCandidate ToEntity(Guid documentId, CandidateDraft c, bool unverified) => new()

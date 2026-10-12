@@ -186,6 +186,89 @@ public class DocxConversionTests(ITestOutputHelper output)
         Assert.Contains(result.LinkIssues, l => l.Problem.Contains("Search-results"));
     }
 
+    // ---- inline images ---------------------------------------------------------------------
+
+    private static readonly byte[] TinyJpeg = [0xFF, 0xD8, 0xFF, 0xE0, 0, 16, (byte)'J', (byte)'F', (byte)'I', (byte)'F', 0, 1, 1, 0, 0, 1, 0, 1, 0, 0];
+    private static readonly byte[] TinyPng = [0x89, (byte)'P', (byte)'N', (byte)'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13];
+
+    private static MemoryStream DocxWithPicture(byte[] image, string alt, bool caption)
+    {
+        var captionXml = caption
+            ? "<w:p><w:pPr><w:pStyle w:val=\"Caption\"/></w:pPr><w:r><w:t>Figure 1 - the office</w:t></w:r></w:p>"
+            : "";
+        var document = $"""
+            <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+                        xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+                        xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+                        xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+                        xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>
+              <w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr><w:r><w:t>Picture article</w:t></w:r></w:p>
+              <w:p><w:r><w:drawing><wp:inline><wp:docPr id="1" name="Picture 1" descr="{System.Security.SecurityElement.Escape(alt)}"/>
+                <a:graphic><a:graphicData><pic:pic><pic:blipFill><a:blip r:embed="rIdImg1"/></pic:blipFill></pic:pic></a:graphicData></a:graphic>
+              </wp:inline></w:drawing></w:r></w:p>
+              {captionXml}
+              <w:p><w:r><w:t>After the picture.</w:t></w:r></w:p>
+            </w:body></w:document>
+            """;
+        var rels = """
+            <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+              <Relationship Id="rIdImg1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.jpg"/>
+            </Relationships>
+            """;
+        var ms = new MemoryStream();
+        using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            using (var w = new StreamWriter(zip.CreateEntry("word/document.xml").Open(), new UTF8Encoding(false))) w.Write(document);
+            using (var w = new StreamWriter(zip.CreateEntry("word/_rels/document.xml.rels").Open(), new UTF8Encoding(false))) w.Write(rels);
+            using (var s = zip.CreateEntry("word/media/image1.jpg").Open()) s.Write(image);
+        }
+        ms.Position = 0;
+        return ms;
+    }
+
+    [Fact]
+    public void Jpeg_picture_becomes_a_figure_with_alt_text_and_caption_and_no_problem()
+    {
+        using var doc = DocxWithPicture(TinyJpeg, "A team in the office", caption: true);
+        var result = HouseStyleConverter.Convert(DocxReader.Read(doc));
+
+        var article = Assert.Single(result.Candidates);
+        var image = Assert.Single(article.ImageAssets);
+        Assert.Null(image.Problem);
+        Assert.Equal("image/jpeg", image.MimeType);
+        Assert.Equal("A team in the office", image.AltText);
+        Assert.Contains("<figure><img src=\"swan-image:1\" alt=\"A team in the office\" /><figcaption>Figure 1 - the office</figcaption></figure>", article.ContentHtml);
+        Assert.DoesNotContain("Figure 1 - the office</p>", article.ContentHtml); // the caption is not repeated as a paragraph
+        Assert.Contains("<p>After the picture.</p>", article.ContentHtml);
+    }
+
+    [Fact]
+    public void Png_picture_is_flagged_so_the_writer_saves_it_as_jpg_or_webp()
+    {
+        using var doc = DocxWithPicture(TinyPng, "A chart", caption: false);
+        var image = Assert.Single(Assert.Single(HouseStyleConverter.Convert(DocxReader.Read(doc)).Candidates).ImageAssets);
+        Assert.Contains("PNG", image.Problem);
+        Assert.Contains("Save it as JPG or WebP", image.Problem);
+    }
+
+    [Fact]
+    public void Picture_without_alt_text_is_flagged()
+    {
+        using var doc = DocxWithPicture(TinyJpeg, "", caption: false);
+        var image = Assert.Single(Assert.Single(HouseStyleConverter.Convert(DocxReader.Read(doc)).Candidates).ImageAssets);
+        Assert.Contains("no alt text", image.Problem);
+    }
+
+    [Fact]
+    public void Picture_over_500_kb_is_flagged()
+    {
+        var big = new byte[600 * 1024];
+        Array.Copy(TinyJpeg, big, TinyJpeg.Length);
+        using var doc = DocxWithPicture(big, "A large photo", caption: false);
+        var image = Assert.Single(Assert.Single(HouseStyleConverter.Convert(DocxReader.Read(doc)).Candidates).ImageAssets);
+        Assert.Contains("The limit is 500 KB", image.Problem);
+    }
+
     // ---- helpers to build small in-memory documents ----------------------------------------
 
     private static MemoryStream BuildZip(params (string Name, string Content)[] entries)

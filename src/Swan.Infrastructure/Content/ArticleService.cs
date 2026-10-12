@@ -68,6 +68,10 @@ public sealed class ArticleService(SwanDbContext db, TimeProvider? clock = null)
     public async Task<Article?> GetAsync(Guid id, CancellationToken ct = default) =>
         await db.Articles.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id, ct);
 
+    /// <summary>Inline pictures of the article's source proposal, in document order.</summary>
+    public async Task<IReadOnlyList<ArticleImage>> ImagesAsync(Guid candidateId, CancellationToken ct = default) =>
+        await db.ArticleImages.AsNoTracking().Where(i => i.CandidateId == candidateId).OrderBy(i => i.Ordinal).ToListAsync(ct);
+
     public async Task<IReadOnlyList<ArticlePublication>> PublicationsAsync(Guid articleId, CancellationToken ct = default) =>
         await db.ArticlePublications.AsNoTracking().Where(p => p.ArticleId == articleId).ToListAsync(ct);
 }

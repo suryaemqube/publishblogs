@@ -19,6 +19,7 @@ public sealed class SwanDbContext(DbContextOptions<SwanDbContext> options) : DbC
     public DbSet<ArticlePublication> ArticlePublications => Set<ArticlePublication>();
     public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
     public DbSet<RemoteMediaMapping> RemoteMediaMappings => Set<RemoteMediaMapping>();
+    public DbSet<ArticleImage> ArticleImages => Set<ArticleImage>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -132,6 +133,18 @@ public sealed class SwanDbContext(DbContextOptions<SwanDbContext> options) : DbC
             e.Property(x => x.StorageKey).HasMaxLength(100).IsRequired();
             e.Property(x => x.FileName).HasMaxLength(260).IsRequired();
             e.Property(x => x.MimeType).HasMaxLength(100).IsRequired();
+        });
+
+        b.Entity<ArticleImage>(e =>
+        {
+            e.ToTable("ArticleImages");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Token).HasMaxLength(40).IsRequired();
+            e.Property(x => x.FileName).HasMaxLength(260).IsRequired();
+            e.Property(x => x.MimeType).HasMaxLength(100);
+            e.Property(x => x.AltText).HasMaxLength(500).IsRequired();
+            e.Property(x => x.Problem).HasMaxLength(500);
+            e.HasIndex(x => new { x.CandidateId, x.Ordinal }).IsUnique();
         });
 
         b.Entity<RemoteMediaMapping>(e =>

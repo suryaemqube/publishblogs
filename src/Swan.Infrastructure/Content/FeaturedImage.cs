@@ -13,7 +13,7 @@ public sealed class ImageRejectedException(string message) : Exception(message);
 /// <summary>Sets an article's featured image (PLAN-v2 §8.2, §6.6).</summary>
 public sealed class FeaturedImageService(SwanDbContext db, LocalFileStore files, TimeProvider? clock = null)
 {
-    public const long MaxBytes = 10L * 1024 * 1024;
+    public const long MaxBytes = 500L * 1024;   // 500 KB (client decision)
     public const int MaxAltLength = 250;
 
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
@@ -28,7 +28,7 @@ public sealed class FeaturedImageService(SwanDbContext db, LocalFileStore files,
         if (bytes.Length == 0)
             throw new ImageRejectedException("The image file is empty.");
         if (bytes.Length > MaxBytes)
-            throw new ImageRejectedException("The image is larger than 10 MB.");
+            throw new ImageRejectedException("The image is larger than 500 KB. Compress it and upload again.");
 
         var (mime, ext) = Detect(bytes, fileName);
         var hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
@@ -73,7 +73,10 @@ public sealed class FeaturedImageService(SwanDbContext db, LocalFileStore files,
         return media;
     }
 
-    /// <summary>Checks the file's signature, not just its name. Returns the MIME type and storage extension.</summary>
+    /// <summary>
+    /// Accepts JPEG and WebP only (client decision). Checks the file's signature, not just its name.
+    /// Returns the MIME type and storage extension.
+    /// </summary>
     public static (string Mime, string Ext) Detect(byte[] b, string fileName)
     {
         var name = fileName.ToLowerInvariant();
@@ -83,17 +86,12 @@ public sealed class FeaturedImageService(SwanDbContext db, LocalFileStore files,
                 throw new ImageRejectedException("The file is a JPEG but its name does not end in .jpg or .jpeg.");
             return ("image/jpeg", ".jpg");
         }
-        if (b.Length >= 8 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47)
-        {
-            if (!name.EndsWith(".png")) throw new ImageRejectedException("The file is a PNG but its name does not end in .png.");
-            return ("image/png", ".png");
-        }
         if (b.Length >= 12 && b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F' && b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P')
         {
             if (!name.EndsWith(".webp")) throw new ImageRejectedException("The file is a WebP but its name does not end in .webp.");
             return ("image/webp", ".webp");
         }
-        throw new ImageRejectedException("Only JPEG, PNG and WebP images are accepted.");
+        throw new ImageRejectedException("Only JPG or WebP images are accepted. Save the image as JPG or WebP and upload again.");
     }
 
     public async Task<(byte[] Bytes, MediaFile Media)?> ReadAsync(Article article, CancellationToken ct = default)

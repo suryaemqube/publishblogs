@@ -202,6 +202,55 @@ namespace Swan.Infrastructure.Persistence.Migrations
                     b.ToTable("ArticleDocuments", (string)null);
                 });
 
+            modelBuilder.Entity("Swan.Domain.Content.ArticleImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AltText")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CandidateId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("MediaFileId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("MimeType")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ParagraphIndex")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Problem")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CandidateId", "Ordinal")
+                        .IsUnique();
+
+                    b.ToTable("ArticleImages", (string)null);
+                });
+
             modelBuilder.Entity("Swan.Domain.Content.ArticlePublication", b =>
                 {
                     b.Property<Guid>("Id")

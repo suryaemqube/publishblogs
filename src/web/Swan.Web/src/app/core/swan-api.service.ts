@@ -75,6 +75,17 @@ export interface ArticleSeo {
   warnings: string[];
 }
 
+export interface ImageInfo {
+  ordinal: number;
+  token: string;
+  paragraph: number;
+  fileName: string;
+  mimeType: string | null;
+  altText: string;
+  problem: string | null;
+  ok: boolean;
+}
+
 export interface ProposedArticle {
   id: string;
   index: number;
@@ -85,6 +96,7 @@ export interface ProposedArticle {
   isUnverified: boolean;
   state: string;
   acceptedArticleId: string | null;
+  images: ImageInfo[];
   contentHtml: string;
   seo: ArticleSeo;
 }
@@ -131,6 +143,8 @@ export interface ArticlePublicationRecord {
 export interface ArticleDetail {
   article: ArticleRecord;
   publications: ArticlePublicationRecord[];
+  images: ImageInfo[];
+  blockers: string[];
 }
 
 export interface DraftSendResult {

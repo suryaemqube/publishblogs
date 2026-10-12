@@ -60,7 +60,7 @@ public sealed class FeaturedImageTests : IAsyncLifetime
         var exe = new byte[] { 0x4D, 0x5A, 0x90, 0x00, 0, 0, 0, 0, 0, 0, 0, 0 };
         var ex = await Assert.ThrowsAsync<ImageRejectedException>(() =>
             Images().SetAsync(_article, exe, "cover.jpg", "A cover photo", Guid.NewGuid(), null));
-        Assert.Contains("Only JPEG", ex.Message);
+        Assert.Contains("Only JPG", ex.Message);
     }
 
     [Fact]
@@ -68,7 +68,34 @@ public sealed class FeaturedImageTests : IAsyncLifetime
     {
         var ex = await Assert.ThrowsAsync<ImageRejectedException>(() =>
             Images().SetAsync(_article, Png, "cover.jpg", "A cover photo", Guid.NewGuid(), null));
-        Assert.Contains("PNG", ex.Message);
+        Assert.Contains("JPG or WebP", ex.Message);
+    }
+
+    [Fact]
+    public async Task Png_is_refused_even_with_a_matching_name()
+    {
+        await Assert.ThrowsAsync<ImageRejectedException>(() =>
+            Images().SetAsync(_article, Png, "cover.png", "A cover photo", Guid.NewGuid(), null));
+    }
+
+    [Fact]
+    public async Task Image_over_500_kb_is_refused()
+    {
+        var big = new byte[500 * 1024 + 1];
+        Array.Copy(Jpeg, big, Jpeg.Length);
+        var ex = await Assert.ThrowsAsync<ImageRejectedException>(() =>
+            Images().SetAsync(_article, big, "big.jpg", "A cover photo", Guid.NewGuid(), null));
+        Assert.Contains("500 KB", ex.Message);
+    }
+
+    [Fact]
+    public async Task Draft_is_blocked_without_a_featured_image()
+    {
+        var tracked = await _db.Articles.FirstAsync(a => a.Id == _article.Id);
+        var pub = new FakePublisher();
+        await Assert.ThrowsAsync<DraftBlockedException>(() =>
+            new DraftSync(_db, new LocalFileStore(_dir)).SyncAsync(tracked, "emqube", pub, Guid.NewGuid(), null));
+        Assert.Equal(0, pub.Creates);
     }
 
     [Theory]
