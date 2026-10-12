@@ -11,7 +11,8 @@ public sealed record CandidateDraft(
     int ParagraphTo,
     string Title,
     string ContentHtml,
-    int WordCount);
+    int WordCount,
+    SeoMetadata? Seo = null);
 
 public sealed record LinkIssue(int Paragraph, string Href, string Problem);
 
@@ -46,6 +47,7 @@ public static class HouseStyleConverter
 
     private static readonly Regex SearchWrapper = new(@"google\.[a-z.]+/search\?q=", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex PercentEncodedFragment = new(@"%23", RegexOptions.Compiled);
+    private static readonly Regex TypedNumber = new(@"^\d+[.)]\s", RegexOptions.Compiled);
 
     public static ConversionResult Convert(DocxPackage package)
     {
@@ -76,6 +78,9 @@ public static class HouseStyleConverter
             {
                 warnings.Add($"Paragraph {p.Index}: style '{p.Style}' is not part of the house style and was treated as Normal.");
             }
+
+            if (p.Style is "Heading1" or "Heading2" or "Heading3" && TypedNumber.IsMatch(p.Text))
+                warnings.Add($"Paragraph {p.Index}: heading starts with a typed number. The number will appear in the published heading.");
 
             foreach (var run in p.Runs)
             {
@@ -228,7 +233,9 @@ public static class HouseStyleConverter
                 listNum = null;
             }
 
-            foreach (var p in _body)
+            var seo = SeoParser.Extract(_body, out var bodyParas);
+
+            foreach (var p in bodyParas)
             {
                 if (p.Text.Length == 0 && p.Style != "SwanCta") continue;
 
@@ -267,7 +274,7 @@ public static class HouseStyleConverter
             CloseList();
 
             if (html.Length == 0) return null;
-            return new CandidateDraft(index, _from, _to, _title.Trim(), html.ToString(), words + CountWords(_title));
+            return new CandidateDraft(index, _from, _to, _title.Trim(), html.ToString(), words + CountWords(_title), seo);
         }
 
         private static string Inline(DocxParagraph p)

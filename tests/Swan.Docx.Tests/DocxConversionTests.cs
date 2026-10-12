@@ -33,6 +33,43 @@ public class DocxConversionTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Seo_block_at_end_of_article_becomes_metadata_and_is_removed_from_body()
+    {
+        var result = ConvertFile("Swan-Article-emQube.docx");
+
+        var article = Assert.Single(result.Candidates);
+        Assert.NotNull(article.Seo);
+        Assert.Equal("A Practical Business Guide to Getting Started with AI | emQube", article.Seo!.SeoTitle);
+        Assert.Equal("/emqonnect/practical-business-guide-to-ai-getting-started", article.Seo.CanonicalPath);
+        Assert.Equal("practical-business-guide-to-ai-getting-started", article.Seo.Slug);
+        Assert.StartsWith("Cut through the AI hype.", article.Seo.MetaDescription);
+        Assert.DoesNotContain("Suggested WordPress", article.ContentHtml);
+        Assert.DoesNotContain("Title Tag", article.ContentHtml);
+        Assert.DoesNotContain("Meta Description", article.ContentHtml);
+        Assert.Contains(result.Warnings, w => w.Contains("typed number"));
+    }
+
+    [Fact]
+    public void Seo_lengths_outside_the_template_range_are_warnings_not_rejections()
+    {
+        var doc = BuildDocx(
+            P("Title", "Short seo"),
+            P("Normal", "Body text."),
+            P(null, "Suggested WordPress SEO & GEO Metadata"),
+            P(null, "Title Tag (50-60 chars): Too short"),
+            P(null, "URL Slug: /blog/short-seo"),
+            P(null, "Meta Description (150-160 chars): Also short."));
+
+        var result = HouseStyleConverter.Convert(DocxReader.Read(doc));
+
+        var article = Assert.Single(result.Candidates);
+        Assert.Equal("short-seo", article.Seo!.Slug);
+        Assert.Contains(article.Seo.Warnings, w => w.Contains("SEO title is 9 characters"));
+        Assert.Contains(article.Seo.Warnings, w => w.Contains("Meta description is"));
+        Assert.DoesNotContain("Suggested", article.ContentHtml);
+    }
+
+    [Fact]
     public void September_style_free_document_is_rejected_with_reasons()
     {
         var result = ConvertFile("Emqube Blogs Oct 2026.docx");

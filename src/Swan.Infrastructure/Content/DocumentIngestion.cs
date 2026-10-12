@@ -138,5 +138,10 @@ public sealed class DocumentIngestion(SwanDbContext db, LocalFileStore files, Ti
         WordCount = c.WordCount,
         IsUnverified = unverified,
         State = "Proposed",
+        SeoTitle = c.Seo?.SeoTitle,
+        MetaDescription = c.Seo?.MetaDescription,
+        CanonicalPath = c.Seo?.CanonicalPath,
+        Slug = c.Seo?.Slug,
+        SeoWarnings = c.Seo is { Warnings.Count: > 0 } ? string.Join("\n", c.Seo.Warnings) : null,
     };
 }

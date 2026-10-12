@@ -40,3 +40,5 @@ Desktop.ini
 
 # Client content used as a test fixture: keep out of git
 tests/Swan.Docx.Tests/Fixtures/Emqube*.docx
+tests/Swan.Docx.Tests/Fixtures/Swan-Article-emQube.docx
+Swan-Article-emQube.docx

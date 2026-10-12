@@ -39,4 +39,11 @@ public sealed class ArticleCandidate
     public int WordCount { get; set; }
     public bool IsUnverified { get; set; }
     public string State { get; set; } = "Proposed";
+
+    // SEO block from the end of the article (PLAN-v2 §8.5). Null when the writer did not supply it.
+    public string? SeoTitle { get; set; }
+    public string? MetaDescription { get; set; }
+    public string? CanonicalPath { get; set; }
+    public string? Slug { get; set; }
+    public string? SeoWarnings { get; set; }   // newline-separated
 }

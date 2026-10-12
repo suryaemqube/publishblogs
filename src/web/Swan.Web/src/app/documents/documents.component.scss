@@ -5,3 +5,28 @@
 .checkline input {
   margin-right: 6px;
 }
+
+.seo-box {
+  background: var(--n-050);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 12px 16px;
+  margin-top: 12px;
+}
+
+.seo-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+
+.seo-list dt {
+  color: var(--text-muted);
+}
+
+.seo-list dd {
+  margin: 0;
+  word-break: break-word;
+}

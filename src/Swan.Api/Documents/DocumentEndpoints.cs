@@ -113,6 +113,16 @@ public static class DocumentEndpoints
             isUnverified = c.IsUnverified,
             state = c.State,
             contentHtml = c.ContentHtml,
+            seo = new
+            {
+                seoTitle = c.SeoTitle,
+                metaDescription = c.MetaDescription,
+                canonicalPath = c.CanonicalPath,
+                slug = c.Slug,
+                warnings = string.IsNullOrEmpty(c.SeoWarnings)
+                    ? Array.Empty<string>()
+                    : c.SeoWarnings.Split('\n'),
+            },
         }),
     };
 }

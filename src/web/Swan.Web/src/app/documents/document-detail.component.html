@@ -53,7 +53,27 @@
                 <button class="btn btn-sm" type="button">{{ openArticle() === a.id ? 'Hide' : 'Preview' }}</button>
               </div>
               @if (openArticle() === a.id) {
-                <div class="ed-b" style="padding:0 20px 20px" [innerHTML]="a.contentHtml"></div>
+                <div style="padding:0 20px 20px">
+                  <div class="seo-box">
+                    <div class="xs muted" style="text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px">SEO from the document</div>
+                    @if (a.seo.seoTitle || a.seo.metaDescription || a.seo.slug) {
+                      <dl class="seo-list">
+                        <dt>SEO title</dt><dd>{{ a.seo.seoTitle ?? 'Not supplied' }}</dd>
+                        <dt>Meta description</dt><dd>{{ a.seo.metaDescription ?? 'Not supplied' }}</dd>
+                        <dt>Slug</dt><dd>{{ a.seo.slug ?? 'Not supplied' }}</dd>
+                        <dt>URL path</dt><dd>{{ a.seo.canonicalPath ?? 'Not supplied' }}</dd>
+                      </dl>
+                    } @else {
+                      <p class="small muted" style="margin:0">The document has no SEO block. Enter SEO fields in the editor.</p>
+                    }
+                    @if (a.seo.warnings.length > 0) {
+                      <ul class="checks" style="margin-top:8px">
+                        @for (w of a.seo.warnings; track w) { <li><span class="d">{{ w }}</span></li> }
+                      </ul>
+                    }
+                  </div>
+                  <div class="ed-b" style="padding:12px 0 0" [innerHTML]="a.contentHtml"></div>
+                </div>
               }
             </div>
           }

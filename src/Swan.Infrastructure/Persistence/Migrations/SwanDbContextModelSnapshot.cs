@@ -26,6 +26,10 @@ namespace Swan.Infrastructure.Persistence.Migrations
                     b.Property<int>("CandidateIndex")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("CanonicalPath")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ContentHtml")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -36,6 +40,10 @@ namespace Swan.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsUnverified")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("MetaDescription")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("ParagraphFrom")
                         .HasColumnType("INTEGER");
 
@@ -45,6 +53,17 @@ namespace Swan.Infrastructure.Persistence.Migrations
                     b.Property<string>("ProposedTitle")
                         .IsRequired()
                         .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SeoTitle")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SeoWarnings")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Slug")
+                        .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("State")

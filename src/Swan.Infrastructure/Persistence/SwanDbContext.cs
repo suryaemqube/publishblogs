@@ -89,6 +89,10 @@ public sealed class SwanDbContext(DbContextOptions<SwanDbContext> options) : DbC
             e.Property(x => x.ProposedTitle).HasMaxLength(300).IsRequired();
             e.Property(x => x.ContentHtml).IsRequired();
             e.Property(x => x.State).HasMaxLength(30).IsRequired();
+            e.Property(x => x.SeoTitle).HasMaxLength(300);
+            e.Property(x => x.MetaDescription).HasMaxLength(1000);
+            e.Property(x => x.CanonicalPath).HasMaxLength(500);
+            e.Property(x => x.Slug).HasMaxLength(200);
             e.HasIndex(x => new { x.DocumentId, x.CandidateIndex }).IsUnique();
             e.HasOne<ArticleDocument>().WithMany().HasForeignKey(x => x.DocumentId).OnDelete(DeleteBehavior.Cascade);
         });

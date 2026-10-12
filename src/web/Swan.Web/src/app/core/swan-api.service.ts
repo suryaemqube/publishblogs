@@ -67,6 +67,14 @@ export interface ConversionReport {
   totalParagraphs: number;
 }
 
+export interface ArticleSeo {
+  seoTitle: string | null;
+  metaDescription: string | null;
+  canonicalPath: string | null;
+  slug: string | null;
+  warnings: string[];
+}
+
 export interface ProposedArticle {
   id: string;
   index: number;
@@ -77,6 +85,7 @@ export interface ProposedArticle {
   isUnverified: boolean;
   state: string;
   contentHtml: string;
+  seo: ArticleSeo;
 }
 
 export interface DocumentDetail {
