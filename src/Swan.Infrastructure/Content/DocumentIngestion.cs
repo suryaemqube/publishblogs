@@ -56,6 +56,25 @@ public sealed class DocumentIngestion(SwanDbContext db, LocalFileStore files, Ti
         var existing = await db.ArticleDocuments.AsNoTracking().FirstOrDefaultAsync(d => d.ContentHash == hash, ct);
         if (existing is not null)
         {
+            // Uploading a hidden file brings it back, so the writer is not left with an invisible copy.
+            if (existing.IsHidden)
+            {
+                var tracked = await db.ArticleDocuments.FirstAsync(d => d.Id == existing.Id, ct);
+                tracked.IsHidden = false;
+                tracked.HiddenUtc = null;
+                db.AuditLogs.Add(new AuditLog
+                {
+                    UserId = userId,
+                    Action = "document.restored",
+                    EntityType = "ArticleDocument",
+                    EntityId = existing.Id.ToString(),
+                    Details = "restored by re-upload",
+                    IpAddress = ip,
+                    CreatedUtc = _clock.GetUtcNow().UtcDateTime,
+                });
+                await db.SaveChangesAsync(ct);
+            }
+
             var (cands, report, imgs) = await LoadAsync(existing, ct);
             return new IngestionOutcome(existing, cands, report, Duplicate: true, imgs);
         }

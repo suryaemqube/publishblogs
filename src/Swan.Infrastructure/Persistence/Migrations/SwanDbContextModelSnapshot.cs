@@ -171,7 +171,13 @@ namespace Swan.Infrastructure.Persistence.Migrations
                     b.Property<long>("FileSizeBytes")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTime?>("HiddenUtc")
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("ImportedWithOverride")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsHidden")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("ReportJson")

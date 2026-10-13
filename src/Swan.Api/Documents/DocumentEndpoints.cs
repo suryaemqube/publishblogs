@@ -6,6 +6,7 @@ using Swan.Api.Sites;
 using Swan.Domain.Identity;
 using Swan.Infrastructure.Content;
 using Swan.Infrastructure.Persistence;
+using Swan.Infrastructure.Storage;
 
 namespace Swan.Api.Documents;
 
@@ -61,9 +62,11 @@ public static class DocumentEndpoints
             }
         });
 
-        group.MapGet("/", async (SwanDbContext db, CancellationToken ct) =>
+        group.MapGet("/", async (bool? showHidden, SwanDbContext db, CancellationToken ct) =>
         {
-            var rows = await db.ArticleDocuments.AsNoTracking()
+            var query = db.ArticleDocuments.AsNoTracking();
+            if (showHidden != true) query = query.Where(d => !d.IsHidden);
+            var rows = await query
                 .OrderByDescending(d => d.UploadedUtc)
                 .Select(d => new
                 {
@@ -73,10 +76,60 @@ public static class DocumentEndpoints
                     d.UploadedUtc,
                     d.FileSizeBytes,
                     clientSiteId = d.SiteId,
+                    isHidden = d.IsHidden,
                     Candidates = db.ArticleCandidates.Count(c => c.DocumentId == d.Id),
+                    acceptedArticles = db.Articles.Count(a => a.SourceDocumentId == d.Id),
                 })
                 .ToListAsync(ct);
             return Results.Ok(rows);
+        });
+
+        // Hide: reversible, removes the document from the default list. Nothing is deleted.
+        group.MapPost("/{id:guid}/hide", async (Guid id, SwanDbContext db, ClaimsPrincipal principal, HttpContext http, CancellationToken ct) =>
+        {
+            var doc = await db.ArticleDocuments.FirstOrDefaultAsync(d => d.Id == id, ct);
+            if (doc is null) return Results.NotFound(new { error = "Document not found." });
+            if (doc.IsHidden) return Results.Ok(new { id, isHidden = true });
+            doc.IsHidden = true;
+            doc.HiddenUtc = DateTime.UtcNow;
+            await Audit(db, principal, http, "document.hidden", id, $"file={doc.FileName}", ct);
+            return Results.Ok(new { id, isHidden = true });
+        });
+
+        group.MapPost("/{id:guid}/restore", async (Guid id, SwanDbContext db, ClaimsPrincipal principal, HttpContext http, CancellationToken ct) =>
+        {
+            var doc = await db.ArticleDocuments.FirstOrDefaultAsync(d => d.Id == id, ct);
+            if (doc is null) return Results.NotFound(new { error = "Document not found." });
+            if (!doc.IsHidden) return Results.Ok(new { id, isHidden = false });
+            doc.IsHidden = false;
+            doc.HiddenUtc = null;
+            await Audit(db, principal, http, "document.restored", id, $"file={doc.FileName}", ct);
+            return Results.Ok(new { id, isHidden = false });
+        });
+
+        // Permanent delete: only for a hidden document with no accepted articles. The original file and its
+        // proposals are removed; pictures shared with other content are kept. Audited.
+        group.MapDelete("/{id:guid}/permanent", async (Guid id, SwanDbContext db, LocalFileStore files,
+                                                       ClaimsPrincipal principal, HttpContext http, CancellationToken ct) =>
+        {
+            var doc = await db.ArticleDocuments.FirstOrDefaultAsync(d => d.Id == id, ct);
+            if (doc is null) return Results.NotFound(new { error = "Document not found." });
+            if (!doc.IsHidden)
+                return Results.Json(new { error = "Hide the document first. Only hidden documents can be deleted permanently." },
+                                    statusCode: StatusCodes.Status409Conflict);
+            if (await db.Articles.AnyAsync(a => a.SourceDocumentId == id, ct))
+                return Results.Json(new { error = "This document has accepted articles, so it cannot be deleted. Those articles may have drafts on client sites." },
+                                    statusCode: StatusCodes.Status409Conflict);
+
+            var candidateIds = db.ArticleCandidates.Where(c => c.DocumentId == id).Select(c => c.Id);
+            db.ArticleImages.RemoveRange(db.ArticleImages.Where(i => candidateIds.Contains(i.CandidateId)));
+            db.ArticleCandidates.RemoveRange(db.ArticleCandidates.Where(c => c.DocumentId == id));
+            db.ArticleDocuments.Remove(doc);
+            await Audit(db, principal, http, "document.deleted_permanently", id, $"file={doc.FileName} hash={doc.ContentHash}", ct);
+
+            // The original is keyed by its hash, which is unique, so no other record can share this file.
+            files.Delete(doc.StorageKey);
+            return Results.NoContent();
         });
 
         group.MapGet("/{id:guid}", async (Guid id, DocumentIngestion ingestion, SwanDbContext db, CancellationToken ct) =>
@@ -134,6 +187,23 @@ public static class DocumentEndpoints
         });
     }
 
+    /// <summary>Writes an audit entry and saves all pending changes, so the action and its record change together.</summary>
+    private static async Task Audit(SwanDbContext db, ClaimsPrincipal principal, HttpContext http, string action, Guid id,
+                                    string details, CancellationToken ct)
+    {
+        db.AuditLogs.Add(new AuditLog
+        {
+            UserId = Guid.Parse(principal.FindFirstValue("sub")!),
+            Action = action,
+            EntityType = "ArticleDocument",
+            EntityId = id.ToString(),
+            Details = details,
+            IpAddress = http.Connection.RemoteIpAddress?.ToString(),
+            CreatedUtc = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync(ct);
+    }
+
     /// <summary>Shape shared by document and article views. Problem is null when the picture can be sent.</summary>
     public static object ToImageDto(ArticleImage i) => new
     {
@@ -158,6 +228,7 @@ public static class DocumentEndpoints
         uploadedUtc = doc.UploadedUtc,
         fileSizeBytes = doc.FileSizeBytes,
         clientSiteId = doc.SiteId,
+        isHidden = doc.IsHidden,
         totalParagraphs = doc.TotalParagraphs,
         importedWithOverride = doc.ImportedWithOverride,
         duplicate,

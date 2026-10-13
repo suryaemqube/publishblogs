@@ -8,28 +8,41 @@
   </div>
 </div>
 
-<div class="card" style="margin-bottom:20px">
+<div class="card upload-card">
+  <div class="card-h"><h2>Upload a document</h2></div>
   <div class="card-b">
-    <div class="row" style="flex-wrap:wrap">
-      <div class="field" style="margin:0; min-width:240px">
+    <div class="upload-grid">
+      <div class="field">
         <label for="doc-client">Client</label>
         <select class="input" id="doc-client" [value]="selectedSiteId()" (change)="selectedSiteId.set($any($event.target).value)">
           <option value="" disabled>Choose a client</option>
           @for (s of sites(); track s.id) { <option [value]="s.id">{{ s.name }}</option> }
         </select>
       </div>
-      <input type="file" accept=".docx" (change)="onFileChosen($event)" aria-label="Choose a .docx file" />
-      @if (canOverride) {
-        <label class="checkline">
-          <input type="checkbox" [checked]="importAnyway()" (change)="importAnyway.set($any($event.target).checked)" />
-          Import anyway (unverified). One article, no split, flagged for full review.
+
+      <div class="field">
+        <span class="field-label">Word file (.docx)</span>
+        <label class="filepick" [class.has-file]="selectedFile()">
+          <span class="filepick-btn">Choose file</span>
+          <span class="filepick-name">{{ selectedFile()?.name ?? 'No file chosen' }}</span>
+          <input type="file" accept=".docx" class="sr-only" (change)="onFileChosen($event)" aria-label="Choose a .docx file" />
         </label>
-      }
-      <button class="btn btn-primary" type="button"
+      </div>
+
+      <button class="btn btn-primary upload-btn" type="button"
               [disabled]="!selectedFile() || !selectedSiteId() || uploading()" (click)="upload()">
         {{ uploading() ? 'Checking...' : 'Upload and check' }}
       </button>
     </div>
+
+    @if (canOverride) {
+      <div class="upload-foot">
+        <label class="checkline">
+          <input type="checkbox" [checked]="importAnyway()" (change)="importAnyway.set($any($event.target).checked)" />
+          Import anyway (unverified). One article, no split, flagged for full review.
+        </label>
+      </div>
+    }
     @if (uploadError(); as err) {
       <div class="alert alert-danger" style="margin-top:16px" role="alert"><p style="margin:0">{{ err }}</p></div>
     }
@@ -74,24 +87,59 @@
 }
 
 <div class="card">
-  <table class="tbl">
+  <div class="card-h list-h">
+    <h2>Uploaded documents <span class="count">{{ visibleDocs().length }}</span></h2>
+    @if (hiddenDocs().length > 0) {
+      <button class="btn btn-ghost btn-sm" type="button" (click)="showHidden.set(!showHidden())">
+        {{ showHidden() ? 'Hide hidden documents' : 'Show hidden (' + hiddenDocs().length + ')' }}
+      </button>
+    }
+  </div>
+
+  @if (actionError(); as err) {
+    <div class="alert alert-danger list-alert" role="alert"><p style="margin:0">{{ err }}</p></div>
+  }
+
+  <table class="tbl docs-tbl">
     <thead>
-      <tr><th>File</th><th>Client</th><th>Uploaded</th><th>Status</th><th>Articles</th><th class="right">Size</th><th></th></tr>
+      <tr><th>File</th><th>Client</th><th>Uploaded</th><th>Status</th><th class="num">Articles</th><th class="right">Size</th><th class="right">Actions</th></tr>
     </thead>
     <tbody>
-      @for (d of documents(); track d.id) {
+      @for (d of visibleDocs(); track d.id) {
         <tr>
-          <td class="strong">{{ d.fileName }}</td>
+          <td class="strong file-cell">{{ d.fileName }}</td>
           <td class="muted">{{ siteName(d.clientSiteId) }}</td>
-          <td class="muted">{{ d.uploadedUtc | date: 'd MMM y, HH:mm' }}</td>
+          <td class="muted nowrap">{{ d.uploadedUtc | date: 'd MMM y, HH:mm' }}</td>
           <td><span class="chip {{ statusLabel(d.status).cls }}"><span class="dot"></span>{{ statusLabel(d.status).text }}</span></td>
-          <td>{{ d.candidates }}</td>
-          <td class="right muted">{{ (d.fileSizeBytes / 1024) | number: '1.0-0' }} KB</td>
-          <td class="right"><a class="btn btn-sm" [routerLink]="['/documents', d.id]">Open</a></td>
+          <td class="num">{{ d.candidates }}</td>
+          <td class="right muted nowrap">{{ (d.fileSizeBytes / 1024) | number: '1.0-0' }} KB</td>
+          <td class="right actions">
+            <a class="btn btn-sm" [routerLink]="['/documents', d.id]">Open</a>
+            <button class="btn btn-ghost btn-sm" type="button" (click)="hide(d)">Hide</button>
+          </td>
         </tr>
       } @empty {
         @if (!loadError()) {
           <tr><td colspan="7" class="empty">No documents yet. Upload one above.</td></tr>
+        }
+      }
+
+      @if (showHidden()) {
+        @for (d of hiddenDocs(); track d.id) {
+          <tr class="is-hidden">
+            <td class="file-cell">{{ d.fileName }} <span class="chip chip-neutral small-chip">Hidden</span></td>
+            <td class="muted">{{ siteName(d.clientSiteId) }}</td>
+            <td class="muted nowrap">{{ d.uploadedUtc | date: 'd MMM y, HH:mm' }}</td>
+            <td><span class="chip {{ statusLabel(d.status).cls }}"><span class="dot"></span>{{ statusLabel(d.status).text }}</span></td>
+            <td class="num">{{ d.candidates }}</td>
+            <td class="right muted nowrap">{{ (d.fileSizeBytes / 1024) | number: '1.0-0' }} KB</td>
+            <td class="right actions">
+              <button class="btn btn-sm" type="button" (click)="restore(d)">Restore</button>
+              <button class="btn btn-sm btn-danger-text" type="button" [disabled]="d.acceptedArticles > 0"
+                      [title]="d.acceptedArticles > 0 ? 'Has accepted articles, so it cannot be deleted' : 'Delete permanently'"
+                      (click)="deletePermanently(d)">Delete permanently</button>
+            </td>
+          </tr>
         }
       }
     </tbody>

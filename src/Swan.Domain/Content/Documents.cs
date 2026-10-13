@@ -30,6 +30,13 @@ public sealed class ArticleDocument
     /// before clients were chosen at upload.
     /// </summary>
     public string? SiteId { get; set; }
+
+    /// <summary>
+    /// Hidden documents leave the default list. Hiding is reversible. Permanent deletion is a separate, audited step
+    /// and is only allowed for a hidden document with no accepted articles.
+    /// </summary>
+    public bool IsHidden { get; set; }
+    public DateTime? HiddenUtc { get; set; }
 }
 
 /// <summary>An article proposed by the split. No Article exists until the writer accepts it (PLAN-v2 §6.1).</summary>

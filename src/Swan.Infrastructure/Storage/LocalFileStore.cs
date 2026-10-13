@@ -28,6 +28,13 @@ public sealed class LocalFileStore(string root)
     public async Task<byte[]> ReadAsync(string key, CancellationToken ct = default) =>
         await File.ReadAllBytesAsync(PathFor(key), ct);
 
+    /// <summary>Removes the stored file if it exists. Only called when no record refers to the key any more.</summary>
+    public void Delete(string key)
+    {
+        var path = PathFor(key);
+        if (File.Exists(path)) File.Delete(path);
+    }
+
     private string PathFor(string key)
     {
         if (key.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_')))

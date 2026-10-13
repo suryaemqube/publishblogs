@@ -1,6 +1,7 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable } from 'rxjs';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../core/auth.service';
 import { DocumentDetail, DocumentSummary, SiteSummary, SWAN_API_BASE, SwanApiService } from '../core/swan-api.service';
@@ -49,10 +50,42 @@ export class DocumentsComponent implements OnInit {
     return this.auth.hasPermission(PermissionKeys.ArticleImportUnverified);
   }
 
+  /** One request returns every document; hidden ones are split out here so the count is known up front. */
   reload(): void {
-    this.api.documents().subscribe({
+    this.api.documents(true).subscribe({
       next: (d) => this.documents.set(d),
       error: (e: HttpErrorResponse) => this.loadError.set(describe(e)),
+    });
+  }
+
+  readonly showHidden = signal(false);
+  readonly actionError = signal<string | null>(null);
+  readonly visibleDocs = computed(() => this.documents().filter((d) => !d.isHidden));
+  readonly hiddenDocs = computed(() => this.documents().filter((d) => d.isHidden));
+
+  hide(d: DocumentSummary): void {
+    this.runAction(this.api.hideDocument(d.id), `Could not hide ${d.fileName}`);
+  }
+
+  restore(d: DocumentSummary): void {
+    this.runAction(this.api.restoreDocument(d.id), `Could not restore ${d.fileName}`);
+  }
+
+  /** Irreversible. Only offered for hidden documents with no accepted articles; the server checks again. */
+  deletePermanently(d: DocumentSummary): void {
+    if (!confirm(`Delete "${d.fileName}" permanently? Its original file and proposed articles are removed. This cannot be undone.`)) return;
+    this.actionError.set(null);
+    this.api.deleteDocumentPermanently(d.id).subscribe({
+      next: () => this.reload(),
+      error: (e: HttpErrorResponse) => this.actionError.set(`Could not delete ${d.fileName}: ${describe(e)}`),
+    });
+  }
+
+  private runAction(obs: Observable<unknown>, failure: string): void {
+    this.actionError.set(null);
+    obs.subscribe({
+      next: () => this.reload(),
+      error: (e: HttpErrorResponse) => this.actionError.set(`${failure}: ${describe(e)}`),
     });
   }
 

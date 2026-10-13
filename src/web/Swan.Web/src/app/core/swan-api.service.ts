@@ -46,6 +46,8 @@ export interface DocumentSummary {
   fileSizeBytes: number;
   candidates: number;
   clientSiteId: string | null;
+  isHidden: boolean;
+  acceptedArticles: number;
 }
 
 export interface LinkIssue {
@@ -162,8 +164,20 @@ export interface DraftSendResult {
 export class SwanApiService {
   private readonly http = inject(HttpClient);
 
-  documents(): Observable<DocumentSummary[]> {
-    return this.http.get<DocumentSummary[]>(`${SWAN_API_BASE}/documents`);
+  documents(showHidden = false): Observable<DocumentSummary[]> {
+    return this.http.get<DocumentSummary[]>(`${SWAN_API_BASE}/documents`, { params: { showHidden: showHidden ? 'true' : 'false' } });
+  }
+
+  hideDocument(id: string): Observable<unknown> {
+    return this.http.post(`${SWAN_API_BASE}/documents/${encodeURIComponent(id)}/hide`, {});
+  }
+
+  restoreDocument(id: string): Observable<unknown> {
+    return this.http.post(`${SWAN_API_BASE}/documents/${encodeURIComponent(id)}/restore`, {});
+  }
+
+  deleteDocumentPermanently(id: string): Observable<void> {
+    return this.http.delete<void>(`${SWAN_API_BASE}/documents/${encodeURIComponent(id)}/permanent`);
   }
 
   document(id: string): Observable<DocumentDetail> {
