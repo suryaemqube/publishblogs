@@ -269,9 +269,10 @@ export class SwanApiService {
     return this.http.get(`${SWAN_API_BASE}/articles/${encodeURIComponent(articleId)}/featured-image`, { responseType: 'blob' });
   }
 
-  sendDraft(articleId: string, siteId: string): Observable<DraftSendResult> {
+  /** Creates the draft on first send, updates it afterwards. recreate=true recovers when the draft was deleted on the site. */
+  sendDraft(articleId: string, siteId: string, recreate = false): Observable<DraftSendResult> {
     return this.http.post<DraftSendResult>(
-      `${SWAN_API_BASE}/articles/${encodeURIComponent(articleId)}/sites/${encodeURIComponent(siteId)}/draft`, {});
+      `${SWAN_API_BASE}/articles/${encodeURIComponent(articleId)}/sites/${encodeURIComponent(siteId)}/draft`, { recreate });
   }
 
   siteDetail(id: string): Observable<SiteDetail> {

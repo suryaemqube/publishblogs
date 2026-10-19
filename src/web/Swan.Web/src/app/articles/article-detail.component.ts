@@ -13,6 +13,8 @@ interface SendState {
   busy: boolean;
   result?: DraftSendResult;
   refusal?: string;
+  /** The site refused because the draft no longer exists — offer to recreate it. */
+  missing?: boolean;
   error?: string;
 }
 
@@ -104,20 +106,25 @@ export class ArticleDetailComponent implements OnInit {
     return this.send()[siteId] ?? { busy: false };
   }
 
-  /** Creates the draft on first send, updates it afterwards, and refuses published posts. */
-  sendDraft(siteId: string): void {
+  /** Creates the draft on first send, updates it afterwards, and refuses published posts.
+   *  recreate=true recovers from a draft deleted on the site: the stale link is cleared and a new draft is created. */
+  sendDraft(siteId: string, recreate = false): void {
     const d = this.detail();
     if (!d) return;
-    this.patch(siteId, { busy: true, result: undefined, refusal: undefined, error: undefined });
-    this.api.sendDraft(d.article.id, siteId).subscribe({
+    this.patch(siteId, { busy: true, result: undefined, refusal: undefined, missing: undefined, error: undefined });
+    this.api.sendDraft(d.article.id, siteId, recreate).subscribe({
       next: (r) => {
         this.patch(siteId, { busy: false, result: r });
         this.api.article(d.article.id).subscribe({ next: (fresh) => this.detail.set(fresh) });
       },
       error: (e: HttpErrorResponse) => {
         if (e.status === 409) {
-          const body = e.error as { error?: string };
-          this.patch(siteId, { busy: false, refusal: body.error ?? 'The site refused the change.' });
+          const body = e.error as { error?: string; refused?: string };
+          this.patch(siteId, {
+            busy: false,
+            refusal: body.error ?? 'The site refused the change.',
+            missing: body.refused === 'missing',
+          });
         } else {
           this.patch(siteId, { busy: false, error: describe(e) });
         }

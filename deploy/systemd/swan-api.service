@@ -22,7 +22,9 @@ Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=ASPNETCORE_URLS=http://127.0.0.1:5197
 
 # Database and file storage. Both must be on a persistent, backed-up path.
-Environment=Database__ConnectionString=Data Source=/var/lib/swan/data/swan.db
+# Note: values containing spaces MUST be quoted, or systemd splits them at the
+# space and the app sees a truncated connection string ("Data") and aborts.
+Environment="Database__ConnectionString=Data Source=/var/lib/swan/data/swan.db"
 Environment=Storage__Root=/var/lib/swan/data/documents
 
 # Data Protection keys encrypt every stored WordPress Application Password.

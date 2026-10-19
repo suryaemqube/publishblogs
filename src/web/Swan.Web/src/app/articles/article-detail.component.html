@@ -126,7 +126,16 @@
               </p></div>
             }
             @if (st.refusal; as msg) {
-              <div class="alert alert-warn" style="margin-top:8px"><p style="margin:0">{{ msg }}</p></div>
+              <div class="alert alert-warn" style="margin-top:8px">
+                <p style="margin:0">{{ msg }}</p>
+                @if (st.missing) {
+                  <p style="margin:8px 0 0">
+                    <button class="btn btn-primary btn-sm" type="button" [disabled]="st.busy" (click)="sendDraft(s.id, true)">
+                      {{ st.busy ? 'Recreating draft...' : 'Recreate draft on the site' }}
+                    </button>
+                  </p>
+                }
+              </div>
             }
             @if (st.error; as msg) {
               <div class="alert alert-danger" style="margin-top:8px"><p style="margin:0">{{ msg }}</p></div>

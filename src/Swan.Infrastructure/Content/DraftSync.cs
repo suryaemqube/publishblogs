@@ -18,6 +18,7 @@ public sealed record DraftSyncOutcome(DraftSyncAction Action, ArticlePublication
 /// <item>No draft on the site yet: create one and remember its post id.</item>
 /// <item>Draft exists and is still a draft on the site: update that post. No second post is created.</item>
 /// <item>Post is published (or otherwise not a draft): refuse. The site is not changed.</item>
+    /// <item>Post no longer exists (deleted on the site): refuse, or - with recreateMissingDraft - clear the stale link and create a fresh draft.</item>
 /// </list>
 /// Pictures (featured and inline) are uploaded to the site's media library once and reused (PLAN-v2 §8.2).
 /// </summary>
@@ -26,7 +27,8 @@ public sealed class DraftSync(SwanDbContext db, LocalFileStore files, TimeProvid
     private readonly TimeProvider _clock = clock ?? TimeProvider.System;
 
     public async Task<DraftSyncOutcome> SyncAsync(
-        Article article, string siteId, IContentPublisher publisher, Guid userId, string? ip, CancellationToken ct = default)
+        Article article, string siteId, IContentPublisher publisher, Guid userId, string? ip,
+        bool recreateMissingDraft = false, CancellationToken ct = default)
     {
         // Client rule: no draft without a featured image.
         if (article.FeaturedMediaId is not { } featuredId)
@@ -68,18 +70,32 @@ public sealed class DraftSync(SwanDbContext db, LocalFileStore files, TimeProvid
             // Re-check the live status first. A published post is refused, never overwritten.
             var info = await publisher.GetPostAsync(remoteId, ct);
             if (info is null)
-                throw new RemoteDraftMissingException(remoteId);
-            if (info.Status != "draft")
-                throw new RemoteDraftPublishedException(remoteId, info.Status);
+            {
+                // The draft was deleted on the site. Refuse by default; with an explicit recreate the
+                // stale link is cleared and the create path below sends a fresh draft (PLAN-v2 §9.2).
+                if (!recreateMissingDraft)
+                    throw new RemoteDraftMissingException(remoteId);
 
-            var updated = await publisher.UpdateDraftAsync(remoteId, request, ct);
-            pub.RemoteStatus = updated.Status;
-            pub.RemoteLink = updated.Link;
-            pub.EditUrl = updated.EditUrl;
-            pub.LastSyncedUtc = now;
-            Audit(userId, "publishing.draft.updated", article, siteId, remoteId, ip, now);
-            await db.SaveChangesAsync(ct);
-            return new DraftSyncOutcome(DraftSyncAction.Updated, pub, updated);
+                Audit(userId, "publishing.draft.link-cleared", article, siteId, remoteId, ip, now);
+                pub.RemotePostId = null;
+                pub.RemoteStatus = null;
+                pub.RemoteLink = null;
+                pub.EditUrl = null;
+            }
+            else
+            {
+                if (info.Status != "draft")
+                    throw new RemoteDraftPublishedException(remoteId, info.Status);
+
+                var updated = await publisher.UpdateDraftAsync(remoteId, request, ct);
+                pub.RemoteStatus = updated.Status;
+                pub.RemoteLink = updated.Link;
+                pub.EditUrl = updated.EditUrl;
+                pub.LastSyncedUtc = now;
+                Audit(userId, "publishing.draft.updated", article, siteId, remoteId, ip, now);
+                await db.SaveChangesAsync(ct);
+                return new DraftSyncOutcome(DraftSyncAction.Updated, pub, updated);
+            }
         }
 
         var created = await publisher.CreateDraftAsync(request, ct);

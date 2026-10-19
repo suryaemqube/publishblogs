@@ -95,7 +95,8 @@ public static class ArticleEndpoints
         });
 
         // Create or update this article's draft on one site. Published posts are refused (409).
-        group.MapPost("/{id:guid}/sites/{siteId}/draft", async (Guid id, string siteId, SiteRegistry registry,
+        // Body { "recreate": true } recovers when the draft was deleted on the site (409 refused="missing").
+        group.MapPost("/{id:guid}/sites/{siteId}/draft", async (Guid id, string siteId, DraftSendBody? body, SiteRegistry registry,
                                                               ArticleService articles, DraftSync sync,
                                                               ClaimsPrincipal principal, HttpContext http, CancellationToken ct) =>
         {
@@ -124,7 +125,7 @@ public static class ArticleEndpoints
                 {
                     var userId = Guid.Parse(principal.FindFirstValue("sub")!);
                     var outcome = await sync.SyncAsync(article, siteId, publisher, userId,
-                                                       http.Connection.RemoteIpAddress?.ToString(), ct);
+                                                       http.Connection.RemoteIpAddress?.ToString(), body?.Recreate ?? false, ct);
                     return Results.Ok(new
                     {
                         action = outcome.Action.ToString().ToLowerInvariant(),
@@ -159,6 +160,9 @@ public static class ArticleEndpoints
             }
         });
     }
+
+    /// <summary>Optional body for the draft endpoint. Recreate = the draft was deleted on the site; send a fresh one.</summary>
+    private sealed record DraftSendBody(bool Recreate);
 
     private static bool TryCreateClient(SiteRegistry sites, SiteConfig site, out WordPressRestClient? client, out IResult? error)
     {
