@@ -24,5 +24,22 @@
   <ItemGroup>
     <None Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <!--
+    Optional: build the Angular client and copy it into wwwroot as part of publish, producing one deployable.
+      dotnet publish src/Swan.Api -c Release -p:BuildClientApp=true
+    Requires Node/npm. The CI workflow builds the client and populates wwwroot itself, so this stays opt-in.
+  -->
+  <Target Name="BuildClientApp" BeforeTargets="ComputeFilesToPublish" Condition="'$(BuildClientApp)' == 'true'">
+    <PropertyGroup>
+      <ClientDir>$(MSBuildProjectDirectory)/../web/Swan.Web</ClientDir>
+    </PropertyGroup>
+    <Exec Command="npm ci" WorkingDirectory="$(ClientDir)" />
+    <Exec Command="npm run build" WorkingDirectory="$(ClientDir)" />
+    <ItemGroup>
+      <ClientFiles Include="$(ClientDir)/dist/swan-web/browser/**/*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ClientFiles)" DestinationFolder="$(MSBuildProjectDirectory)/wwwroot/%(RecursiveDir)" />
+  </Target>
 </Project>
 

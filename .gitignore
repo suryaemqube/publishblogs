@@ -38,8 +38,17 @@ Desktop.ini
 *.db-shm
 *.db-wal
 
+# --- Built client bundled into the API for deployment ---
+src/Swan.Api/wwwroot/
+
 # Client content used as a test fixture: keep out of git
 tests/Swan.Docx.Tests/Fixtures/Emqube*.docx
 tests/Swan.Docx.Tests/Fixtures/Swan-Article-emQube.docx
 Swan-Article-emQube.docx
 Emqube Blogs Oct 2026.docx
+
+# --- Working files: not part of the app ---
+Swan-Article-*.docx
+AI-Journey.jpg
+New Text Document.txt
+swanscan-commands.txt

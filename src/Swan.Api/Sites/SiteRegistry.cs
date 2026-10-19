@@ -1,12 +1,9 @@
-using Swan.Adapters.Abstractions;
+using Microsoft.AspNetCore.DataProtection;
 using Swan.Adapters.WordPress;
 
 namespace Swan.Api.Sites;
 
-/// <summary>
-/// Non-secret site configuration, from appsettings.json "Sites".
-/// Username and ApplicationPassword are NOT here; they come from CredentialsFile.
-/// </summary>
+/// <summary>A configured client site, as loaded from the database. The password stays encrypted until a client is built.</summary>
 public sealed class SiteConfig
 {
     public string Id { get; set; } = "";
@@ -14,50 +11,66 @@ public sealed class SiteConfig
     public string RestOrigin { get; set; } = "";
     public string PostTypeKey { get; set; } = "";
     public string RestBase { get; set; } = "";
-    public string CredentialsFile { get; set; } = "";
-
-    /// <summary>Optional. Only set where the client's server blocks the default agent (PLAN: option B decision).</summary>
-    public string? UserAgent { get; set; }
-
-    /// <summary>
-    /// Write Yoast SEO title and meta description over REST. Stays false until the site registers the Yoast
-    /// meta keys with show_in_rest (see the client setup note), otherwise WordPress ignores them silently.
-    /// </summary>
-    public bool WriteYoastMeta { get; set; }
-
-    /// <summary>
-    /// Taxonomies Swan writes to, by REST-visible name (for example "category" or "stories-category").
-    /// The connection test requires each one to be attached to the post type and readable over REST.
-    /// </summary>
+    public string Username { get; set; } = "";
+    public string ProtectedPassword { get; set; } = "";
     public List<string> Taxonomies { get; set; } = [];
+    public bool WriteYoastMeta { get; set; }
+    public string? UserAgent { get; set; }
+    public bool IsEnabled { get; set; } = true;
+    public string ConnectionStatus { get; set; } = "Untested";
+    public DateTime? LastTestedUtc { get; set; }
+    public string? LastTestSummary { get; set; }
 }
 
-public sealed record SiteSummary(string Id, string Name, string RestOrigin, string PostTypeKey, string RestBase);
+/// <summary>What the Sites screen and other callers see. Never contains the password.</summary>
+public sealed record SiteSummary(
+    string Id,
+    string Name,
+    string RestOrigin,
+    string PostTypeKey,
+    string RestBase,
+    string Username,
+    IReadOnlyList<string> Taxonomies,
+    bool WriteYoastMeta,
+    bool IsEnabled,
+    string ConnectionStatus,
+    DateTime? LastTestedUtc,
+    string? LastTestSummary);
 
-/// <summary>Resolves a site id to a configured WordPress client. Clients are short-lived; credentials are read per use.</summary>
-public sealed class SiteRegistry(IReadOnlyList<SiteConfig> sites)
+/// <summary>
+/// Resolves a site id to its configuration and builds WordPress clients. Holds an in-memory snapshot of the database
+/// rows, replaced by <see cref="SiteStore"/> after every change, so lookups stay synchronous and cheap.
+/// </summary>
+public sealed class SiteRegistry(IDataProtectionProvider protection)
 {
+    private readonly IDataProtector _protector = protection.CreateProtector(SiteStore.SecretPurpose);
+    private volatile IReadOnlyList<SiteConfig> _sites = [];
+
+    public void Replace(IEnumerable<SiteConfig> sites) => _sites = sites.ToList();
+
     public IReadOnlyList<SiteSummary> List() =>
-        sites.Select(s => new SiteSummary(s.Id, s.Name, s.RestOrigin, s.PostTypeKey, s.RestBase)).ToList();
+        _sites.Select(Summarize).ToList();
+
+    public static SiteSummary Summarize(SiteConfig s) => new(
+        s.Id, s.Name, s.RestOrigin, s.PostTypeKey, s.RestBase, s.Username, s.Taxonomies, s.WriteYoastMeta,
+        s.IsEnabled, s.ConnectionStatus, s.LastTestedUtc, s.LastTestSummary);
 
     public SiteConfig? Find(string id) =>
-        sites.FirstOrDefault(s => string.Equals(s.Id, id, StringComparison.OrdinalIgnoreCase));
+        _sites.FirstOrDefault(s => string.Equals(s.Id, id, StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>Builds a WordPress client for the site. Caller must dispose it.</summary>
+    /// <summary>Builds a WordPress client for the site. The password is decrypted here and only here. Caller must dispose it.</summary>
     public WordPressRestClient CreateWordPressClient(SiteConfig site)
     {
-        var path = ExpandPath(site.CredentialsFile);
-        var settings = CredentialFile.Load(path);
+        if (string.IsNullOrEmpty(site.ProtectedPassword))
+            throw new InvalidDataException($"No Application Password is stored for site '{site.Id}'.");
+        var password = _protector.Unprotect(site.ProtectedPassword);
         var options = new WordPressSiteOptions(
             new Uri(site.RestOrigin, UriKind.Absolute),
             site.PostTypeKey,
             site.RestBase,
-            CredentialFile.Require(settings, "Username"),
-            CredentialFile.Require(settings, "ApplicationPassword"),
+            site.Username,
+            password,
             site.UserAgent);
         return new WordPressRestClient(options);
     }
-
-    private static string ExpandPath(string path) =>
-        Environment.ExpandEnvironmentVariables(path);
 }

@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { LoginComponent } from './login/login.component';
 import { ShellComponent } from './layout/shell.component';
 import { SitesComponent } from './sites/sites.component';
+import { SiteFormComponent } from './sites/site-form.component';
 import { DocumentsComponent } from './documents/documents.component';
 import { DocumentDetailComponent } from './documents/document-detail.component';
 import { ArticlesComponent } from './articles/articles.component';
@@ -20,6 +21,8 @@ export const routes: Routes = [
       { path: 'articles/:id', component: ArticleDetailComponent },
       { path: 'documents/:id', component: DocumentDetailComponent },
       { path: 'sites', component: SitesComponent },
+      { path: 'sites/new', component: SiteFormComponent },
+      { path: 'sites/:id/edit', component: SiteFormComponent },
       { path: '', pathMatch: 'full', redirectTo: 'sites' },
       { path: '**', redirectTo: 'sites' },
     ],

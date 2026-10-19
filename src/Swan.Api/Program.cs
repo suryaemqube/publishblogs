@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -39,14 +40,23 @@ var authOptions = new AuthOptions
     SigningKey = SigningKeyStore.LoadOrCreate(signingKeyFile),
 };
 
-var siteConfigs = builder.Configuration.GetSection("Sites").Get<List<SiteConfig>>() ?? [];
+// Application Passwords are encrypted with Data Protection. Set DataProtection:KeysPath to a persistent,
+// backed-up location in production (for example /home/data/keys on Azure App Service). Losing this folder
+// makes every stored WordPress Application Password unreadable, so it must be backed up with the database.
+var protectionKeysDir = builder.Configuration["DataProtection:KeysPath"]
+    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".swan-data", "keys");
+
+// Uploaded .docx originals and images. Set Storage:Root to persistent storage in production.
+var storageRoot = builder.Configuration["Storage:Root"] ?? LocalFileStore.DefaultRoot();
 
 // ---- Services ------------------------------------------------------------------------------
-builder.Services.AddSingleton(new SiteRegistry(siteConfigs));
+builder.Services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(protectionKeysDir)).SetApplicationName("Swan");
+builder.Services.AddSingleton<SiteRegistry>();
+builder.Services.AddScoped<SiteStore>();
 builder.Services.AddSingleton(authOptions);
 builder.Services.AddDbContext<SwanDbContext>(o => o.UseSqlite(dbPath));
 builder.Services.AddScoped<AuthService>();
-builder.Services.AddSingleton(new LocalFileStore(LocalFileStore.DefaultRoot()));
+builder.Services.AddSingleton(new LocalFileStore(storageRoot));
 builder.Services.AddScoped<DocumentIngestion>();
 builder.Services.AddScoped<ArticleService>();
 builder.Services.AddScoped<DraftSync>();
@@ -89,20 +99,30 @@ builder.Services.AddRateLimiter(o =>
 });
 
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
-    p.WithOrigins("http://localhost:4200").AllowAnyHeader().AllowAnyMethod()));
+    p.WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["http://localhost:4200"])
+     .AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();
 
 // Dev convenience: create or update the schema on startup. Replace with reviewed migrations in production.
 using (var scope = app.Services.CreateScope())
 {
-    await scope.ServiceProvider.GetRequiredService<SwanDbContext>().Database.MigrateAsync();
+    var services = scope.ServiceProvider;
+    var db = services.GetRequiredService<SwanDbContext>();
+    await db.Database.MigrateAsync();
+
+    await services.GetRequiredService<SiteStore>().RefreshAsync();
 }
 
 app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Serve the built Angular app from wwwroot when it is present, so production is a single deployable on one origin.
+// In development the client runs on the Angular dev server and this is a no-op.
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
 
@@ -148,94 +168,22 @@ app.MapGet("/api/auth/me", async (ClaimsPrincipal principal, AuthService svc, Ca
     return me is null ? Results.Unauthorized() : Results.Ok(me);
 }).RequireAuthorization();
 
-// ---- Sites ---------------------------------------------------------------------------------
-var sites = app.MapGroup("/api/sites").RequireAuthorization();
-
-sites.MapGet("/", (SiteRegistry registry) => Results.Ok(registry.List()))
-    .RequireAuthorization(PermissionKeys.SiteRead);
-
-// Read-only. Makes outbound calls to the client's WordPress REST API; never writes.
-sites.MapGet("/{id}/connection-test", async (string id, SiteRegistry registry, CancellationToken ct) =>
-{
-    var site = registry.Find(id);
-    if (site is null) return Results.NotFound(new { error = $"Unknown site '{id}'." });
-    if (!TryCreateClient(registry, site, out var client, out var error)) return error!;
-    using (client)
-    {
-        // Yoast keys are only needed when Swan writes them; otherwise a missing key is not a problem.
-        var report = await new WordPressConnectionTest(client!).RunAsync(ct,
-            site.WriteYoastMeta ? WordPressContentPublisher.YoastMetaKeys : null,
-            site.Taxonomies.Count > 0 ? site.Taxonomies : null);
-        return Results.Ok(report);
-    }
-}).RequireAuthorization(PermissionKeys.SiteRead);
-
-// Creates a WordPress draft. Status is forced to 'draft' by the adapter; never publishes.
-sites.MapPost("/{id}/drafts", async (string id, CreateDraftRequest body, SiteRegistry registry,
-                                     SwanDbContext db, ClaimsPrincipal principal, HttpContext http, CancellationToken ct) =>
-{
-    if (string.IsNullOrWhiteSpace(body.Title)) return Results.BadRequest(new { error = "Title is required." });
-    if (body.Title.Length > 300) return Results.BadRequest(new { error = "Title must be 300 characters or fewer." });
-    if (body.ContentHtml is null) return Results.BadRequest(new { error = "ContentHtml is required." });
-
-    var site = registry.Find(id);
-    if (site is null) return Results.NotFound(new { error = $"Unknown site '{id}'." });
-    if (!TryCreateClient(registry, site, out var client, out var error)) return error!;
-
-    using (client)
-    {
-        try
-        {
-            var result = await new WordPressContentPublisher(client!)
-                .CreateDraftAsync(new DraftRequest(body.Title, body.ContentHtml, body.Excerpt, body.Slug), ct);
-
-            db.AuditLogs.Add(new AuditLog
-            {
-                UserId = Guid.TryParse(principal.FindFirstValue("sub"), out var uid) ? uid : null,
-                Action = "publishing.draft.created",
-                EntityType = "WordPressPost",
-                EntityId = $"{site.Id}:{result.RemoteId}",
-                Details = $"status={result.Status}",
-                IpAddress = http.Connection.RemoteIpAddress?.ToString(),
-                CreatedUtc = DateTime.UtcNow,
-            });
-            await db.SaveChangesAsync(ct);
-
-            return Results.Created(result.EditUrl, result);
-        }
-        catch (WordPressApiException ex)
-        {
-            return Results.Problem(ex.Message, statusCode: StatusCodes.Status502BadGateway, title: "Site rejected the draft");
-        }
-    }
-}).RequireAuthorization(PermissionKeys.PublishingDraft);
+app.MapSiteEndpoints();
 
 app.MapDocumentEndpoints();
 app.MapArticleEndpoints();
 
+// Client-side routes (for example /sites/new) serve index.html, but an unknown /api path must still 404
+// rather than returning the HTML shell. Only registered when the client has actually been built into wwwroot.
+var webRoot = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+if (File.Exists(Path.Combine(webRoot, "index.html")))
+{
+    app.MapFallback("/api/{**rest}", () => Results.NotFound());
+    app.MapFallbackToFile("index.html");
+}
+
 app.Run();
 return 0;
-
-// Turns a configuration problem (missing/empty credentials file, missing key) into a readable 503.
-// Messages name the file and key, never the value.
-static bool TryCreateClient(SiteRegistry sites, SiteConfig site, out WordPressRestClient? client, out IResult? error)
-{
-    try
-    {
-        client = sites.CreateWordPressClient(site);
-        error = null;
-        return true;
-    }
-    catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException or UriFormatException)
-    {
-        client = null;
-        error = Results.Problem(
-            $"Site '{site.Id}' is not configured: {ex.Message}",
-            statusCode: StatusCodes.Status503ServiceUnavailable,
-            title: "Site configuration incomplete");
-        return false;
-    }
-}
 
 static object TokenResponse(TokenPair p) => new
 {

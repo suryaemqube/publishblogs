@@ -1,0 +1,43 @@
+[Unit]
+Description=Swan Content Publisher API (Kestrel)
+Documentation=https://github.com/suryaemqube/publishblogs
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# The published app lives here (see deploy/deploy.sh).
+WorkingDirectory=/opt/swan/app
+ExecStart=/usr/bin/dotnet /opt/swan/app/Swan.Api.dll
+
+User=swan
+Group=swan
+
+# Restart on crashes; give up only if it repeatedly fails to bind (start limit).
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=0
+
+# --- Environment ------------------------------------------------------------------
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5197
+
+# Database and file storage. Both must be on a persistent, backed-up path.
+Environment=Database__ConnectionString=Data Source=/var/lib/swan/data/swan.db
+Environment=Storage__Root=/var/lib/swan/data/documents
+
+# Data Protection keys encrypt every stored WordPress Application Password.
+# Losing this folder makes those passwords unreadable. Back it up.
+Environment=DataProtection__KeysPath=/var/lib/swan/data/keys
+
+# JWT signing key for user sessions. Also persistent and backed up.
+Environment=Auth__SigningKeyFile=/var/lib/swan/data/jwt-signing-key.txt
+
+# Only the hostname(s) the app should answer for. Set to '*' only while testing by IP.
+Environment=AllowedHosts=publishblogs.emqube.net
+
+# Hardening: no new privileges, private temp.
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

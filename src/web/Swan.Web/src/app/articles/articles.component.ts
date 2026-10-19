@@ -27,5 +27,5 @@ export class ArticlesComponent implements OnInit {
 function describe(e: HttpErrorResponse): string {
   const body = e.error as { error?: string; detail?: string; title?: string } | null;
   if (body && typeof body === 'object') return body.error ?? body.detail ?? body.title ?? `HTTP ${e.status}`;
-  return e.status === 0 ? 'Cannot reach the Swan API (is it running on port 5197?)' : `HTTP ${e.status}`;
+  return e.status === 0 ? 'Cannot reach the Swan API. Check that it is running.' : `HTTP ${e.status}`;
 }

@@ -1,0 +1,158 @@
+<div class="phead">
+  <div class="grow">
+    <p class="crumbs"><a routerLink="/sites">Sites</a> <span class="sep">/</span> {{ isEdit ? name || 'Edit site' : 'Add site' }}</p>
+    <h1>{{ isEdit ? 'Edit site' : 'Add a client site' }}</h1>
+    <p>Connect a client's WordPress site. Swan tests the connection on save and blocks drafts until the test passes.</p>
+  </div>
+</div>
+
+@if (loading()) {
+  <p class="muted">Loading...</p>
+} @else if (loadError(); as err) {
+  <div class="alert alert-danger"><p style="margin:0">Could not load the site: {{ err }}</p></div>
+} @else {
+
+  @if (saved(); as s) {
+    <div class="alert {{ s.report && !s.report.passed ? 'alert-warn' : 'alert-ok' }} flash">
+      <p style="margin:0"><strong>{{ s.message }}</strong></p>
+      @if (s.report) {
+        <ul class="checks">
+          @for (c of s.report.checks; track c.name) {
+            <li>
+              <svg class="ico {{ c.passed ? 'good' : 'bad' }}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                @if (c.passed) { <path d="M3 8.4 6.4 11.8 13 4.2"/> } @else { <path d="M4 4l8 8M12 4l-8 8"/> }
+              </svg>
+              <div><div class="t">{{ c.name }}</div><div class="d">{{ c.detail }}</div></div>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  }
+
+  <form class="site-form" (ngSubmit)="save()" #f="ngForm">
+
+    <section class="fsec">
+      <h2>Connection</h2>
+      <div class="fgrid">
+        <div class="field span-2">
+          <label for="s-name">Client name</label>
+          <input id="s-name" class="input" name="name" [(ngModel)]="name" required maxlength="200" placeholder="e.g. Electricway" />
+        </div>
+        <div class="field span-2">
+          <label for="s-origin">WordPress address</label>
+          <input id="s-origin" class="input" name="restOrigin" [(ngModel)]="restOrigin" required placeholder="https://wp.example.com" />
+          <span class="hint">The WordPress site's own address. This is not always the public website's address.</span>
+        </div>
+        <div class="field">
+          <label for="s-user">WordPress username</label>
+          <input id="s-user" class="input" name="username" [(ngModel)]="username" required autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="s-pass">Application Password {{ isEdit ? '(leave blank to keep the current one)' : '' }}</label>
+          <input id="s-pass" class="input" type="password" name="password" [(ngModel)]="password" autocomplete="new-password"
+                 [required]="!isEdit" />
+          <span class="hint">Stored encrypted. It is never shown again.</span>
+        </div>
+      </div>
+
+      <div class="discover">
+        <button class="btn" type="button" (click)="discover()" [disabled]="discovering() || !canDiscover()">
+          {{ discovering() ? 'Looking up...' : 'Look up post types and categories' }}
+        </button>
+        <span class="hint">Reads what this WordPress site exposes over REST. Saves nothing.</span>
+      </div>
+      @if (discoverError(); as err) {
+        <div class="alert alert-danger" style="margin-top:12px"><p style="margin:0">{{ err }}</p></div>
+      }
+    </section>
+
+    <section class="fsec">
+      <h2>Content</h2>
+      <div class="fgrid">
+        <div class="field">
+          <label for="s-type">Post type</label>
+          @if (discovery(); as d) {
+            <select id="s-type" class="input" name="postTypeKey" [ngModel]="postTypeKey" (ngModelChange)="pickPostType($event)" required>
+              <option value="" disabled>Choose a post type</option>
+              @for (t of d.types; track t.slug) { <option [value]="t.slug">{{ t.name }} ({{ t.slug }})</option> }
+            </select>
+          } @else {
+            <input id="s-type" class="input" name="postTypeKey" [(ngModel)]="postTypeKey" required placeholder="e.g. blogs" />
+          }
+          <span class="hint">{{ discovery() ? 'Only post types WordPress exposes over REST are listed.' : 'Look up the site first to choose from its post types.' }}</span>
+        </div>
+        <div class="field">
+          <label for="s-rest">REST base</label>
+          <input id="s-rest" class="input" name="restBase" [(ngModel)]="restBase" required />
+          <span class="hint">Filled in from the post type. Change it only if the client set a different rest_base.</span>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:16px">
+        <span class="field-label">Categories Swan writes to</span>
+        @if (discovery(); as d) {
+          @if (d.taxonomies.length === 0) {
+            <p class="hint">WordPress lists no taxonomies over REST for this site yet.</p>
+          }
+          <div class="chips">
+            @for (t of d.taxonomies; track t.slug) {
+              <label class="chip-check" [class.on]="selectedTaxonomies().includes(t.slug)">
+                <input type="checkbox" [checked]="selectedTaxonomies().includes(t.slug)"
+                       (change)="toggleTaxonomy(t.slug, $any($event.target).checked)" />
+                {{ t.name }} <span class="muted">({{ t.slug }})</span>
+              </label>
+            }
+          </div>
+        }
+        <div class="row-tight" style="margin-top:8px">
+          <input class="input" name="custom" [(ngModel)]="customTaxonomies" placeholder="Other taxonomy names, comma separated"
+                 (keydown.enter)="$event.preventDefault(); addCustomTaxonomies()" />
+          <button class="btn btn-sm" type="button" (click)="addCustomTaxonomies()" [disabled]="!customTaxonomies.trim()">Add</button>
+        </div>
+        @if (selectedTaxonomies().length > 0) {
+          <div class="chips" style="margin-top:8px">
+            @for (slug of selectedTaxonomies(); track slug) {
+              <span class="chip chip-neutral">{{ slug }}</span>
+            }
+          </div>
+        }
+      </div>
+    </section>
+
+    <section class="fsec">
+      <h2>Behaviour</h2>
+      <label class="toggle">
+        <input type="checkbox" name="yoast" [(ngModel)]="writeYoastMeta" />
+        <span>
+          <strong>Write Yoast SEO title and meta description</strong>
+          <span class="hint block">Only turn this on after the site has the Yoast REST snippet. Otherwise WordPress ignores the values.</span>
+        </span>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" name="enabled" [(ngModel)]="isEnabled" />
+        <span>
+          <strong>Site is enabled</strong>
+          <span class="hint block">A disabled site receives no drafts. Nothing is deleted.</span>
+        </span>
+      </label>
+
+      <div class="field advanced">
+        <label for="s-agent">User agent (advanced)</label>
+        <input id="s-agent" class="input" name="userAgent" [(ngModel)]="userAgent" placeholder="Leave blank for the default" />
+        <span class="hint">Only set this if the site's server blocks Swan's default agent with a 403. Changing it needs a re-test.</span>
+      </div>
+    </section>
+
+    @if (saveError(); as err) {
+      <div class="alert alert-danger"><p style="margin:0">{{ err }}</p></div>
+    }
+
+    <div class="form-actions">
+      <a class="btn btn-ghost" routerLink="/sites">Back to sites</a>
+      <button class="btn btn-primary" type="submit" [disabled]="!canSave()">
+        {{ saving() ? (isEdit ? 'Saving...' : 'Adding and testing...') : (isEdit ? 'Save changes' : 'Add site and test') }}
+      </button>
+    </div>
+  </form>
+}

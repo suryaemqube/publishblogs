@@ -2,8 +2,11 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
-/** Dev API address. Must match Swan.Api launchSettings (http://localhost:5197). */
-export const SWAN_API_BASE = 'http://localhost:5197/api';
+/**
+ * API address. Relative so the same build works in production (Angular served from the API's wwwroot)
+ * and in development (the dev server proxies /api to the API — see proxy.conf.json).
+ */
+export const SWAN_API_BASE = '/api';
 
 export interface SiteSummary {
   id: string;
@@ -11,6 +14,45 @@ export interface SiteSummary {
   restOrigin: string;
   postTypeKey: string;
   restBase: string;
+  username: string;
+  taxonomies: string[];
+  writeYoastMeta: boolean;
+  isEnabled: boolean;
+  /** "Untested" | "Ready" | "NotReady". Drafts are only allowed when "Ready" and enabled. */
+  connectionStatus: 'Untested' | 'Ready' | 'NotReady';
+  lastTestedUtc: string | null;
+  lastTestSummary: string | null;
+}
+
+export interface SiteDetail extends SiteSummary {
+  userAgent: string | null;
+  hasPassword: boolean;
+}
+
+/** Form values for creating or editing a site. The password is only sent when typed. */
+export interface SiteInput {
+  name: string;
+  restOrigin: string;
+  username: string;
+  applicationPassword: string | null;
+  postTypeKey: string;
+  restBase: string;
+  taxonomies: string[];
+  writeYoastMeta: boolean;
+  isEnabled: boolean;
+  /** Optional. Only set where the client's server blocks the default agent. */
+  userAgent: string | null;
+}
+
+export interface DiscoveredEntry {
+  slug: string;
+  restBase: string;
+  name: string;
+}
+
+export interface Discovery {
+  types: DiscoveredEntry[];
+  taxonomies: DiscoveredEntry[];
 }
 
 export interface ConnectionCheck {
@@ -230,6 +272,32 @@ export class SwanApiService {
   sendDraft(articleId: string, siteId: string): Observable<DraftSendResult> {
     return this.http.post<DraftSendResult>(
       `${SWAN_API_BASE}/articles/${encodeURIComponent(articleId)}/sites/${encodeURIComponent(siteId)}/draft`, {});
+  }
+
+  siteDetail(id: string): Observable<SiteDetail> {
+    return this.http.get<SiteDetail>(`${SWAN_API_BASE}/sites/${encodeURIComponent(id)}`);
+  }
+
+  createSite(input: SiteInput): Observable<{ site: SiteSummary; report: ConnectionTestReport }> {
+    return this.http.post<{ site: SiteSummary; report: ConnectionTestReport }>(`${SWAN_API_BASE}/sites`, input);
+  }
+
+  updateSite(id: string, input: SiteInput): Observable<{ site: SiteSummary }> {
+    return this.http.put<{ site: SiteSummary }>(`${SWAN_API_BASE}/sites/${encodeURIComponent(id)}`, input);
+  }
+
+  setSiteEnabled(id: string, enabled: boolean): Observable<{ site: SiteSummary }> {
+    return this.http.post<{ site: SiteSummary }>(`${SWAN_API_BASE}/sites/${encodeURIComponent(id)}/enabled`, { enabled });
+  }
+
+  /** Lists the post types and taxonomies WordPress exposes. Uses the typed credentials; saves nothing. */
+  discoverSite(restOrigin: string, username: string, applicationPassword: string): Observable<Discovery> {
+    return this.http.post<Discovery>(`${SWAN_API_BASE}/sites/discover`, { restOrigin, username, applicationPassword });
+  }
+
+  /** Same discovery, using the password already stored for the site (edit form). */
+  discoverStoredSite(id: string): Observable<Discovery> {
+    return this.http.post<Discovery>(`${SWAN_API_BASE}/sites/${encodeURIComponent(id)}/discover`, {});
   }
 
   sites(): Observable<SiteSummary[]> {

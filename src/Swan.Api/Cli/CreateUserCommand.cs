@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Swan.Domain.Identity;
 using Swan.Infrastructure.Auth;
 using Swan.Infrastructure.Persistence;
@@ -41,7 +42,7 @@ public static class CreateUserCommand
         }
 
         var options = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<SwanDbContext>()
-            .UseSqlite(ApiDatabase.ConnectionString())
+            .UseSqlite(ResolveConnectionString())
             .Options;
         await using var db = new SwanDbContext(options);
         await db.Database.MigrateAsync();
@@ -57,6 +58,22 @@ public static class CreateUserCommand
             Console.Error.WriteLine(ex.Message);
             return 1;
         }
+    }
+
+    /// <summary>
+    /// The same connection string the API uses: appsettings + environment, so `Database__ConnectionString`
+    /// and the same appsettings files are honoured. Falls back to the default file location when unset.
+    /// </summary>
+    private static string ResolveConnectionString()
+    {
+        var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: true)
+            .AddJsonFile($"appsettings.{environment}.json", optional: true)
+            .AddEnvironmentVariables()
+            .Build();
+        return configuration["Database:ConnectionString"] ?? ApiDatabase.ConnectionString();
     }
 
     private static string ReadHidden(string prompt)

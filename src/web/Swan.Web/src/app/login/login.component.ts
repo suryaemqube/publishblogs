@@ -50,7 +50,7 @@ export class LoginComponent {
       case 401: return 'Email or password is incorrect.';
       case 423: return 'Too many failed attempts. Try again in 15 minutes.';
       case 429: return 'Too many sign-in attempts from this address. Wait a minute and try again.';
-      case 0:   return 'Cannot reach the Swan API. Is it running on port 5197?';
+      case 0:   return 'Cannot reach the Swan API. Check that it is running.';
       default:  return `Sign-in failed (HTTP ${e.status}).`;
     }
   }

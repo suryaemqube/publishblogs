@@ -3,6 +3,11 @@
     <h1>Sites</h1>
     <p>Connected WordPress sites. Test a connection before writing anything to a site.</p>
   </div>
+  @if (canManage) {
+    <div class="phead-acts">
+      <a class="btn btn-primary" routerLink="/sites/new">Add site</a>
+    </div>
+  }
 </div>
 
 @if (loadError(); as err) {
@@ -20,21 +25,47 @@
         @let health = healthOf(site);
         <tr>
           <td>
-            <div class="strong">{{ site.name }}</div>
+            <div class="strong">
+              {{ site.name }}
+              @if (!site.isEnabled) { <span class="chip chip-neutral">Disabled</span> }
+            </div>
             <div class="xs muted">{{ host(site) }}</div>
           </td>
           <td><span class="chip chip-neutral">{{ site.postTypeKey }}</span></td>
           <td><span class="chip chip-neutral">{{ site.restBase }}</span></td>
-          <td><span class="chip {{ health.cls }}"><span class="dot"></span>{{ health.label }}</span></td>
+          <td>
+            <span class="chip {{ health.cls }}"><span class="dot"></span>{{ health.label }}</span>
+            @if (lastTested(site); as when) {
+              <div class="xs muted">Last tested {{ when }}</div>
+            }
+            @if (site.lastTestSummary && site.connectionStatus !== 'Ready') {
+              <div class="xs muted" [title]="site.lastTestSummary">{{ site.lastTestSummary }}</div>
+            }
+          </td>
           <td class="right nowrap">
-            <button class="btn btn-sm" type="button" [disabled]="st.testing" (click)="runConnectionTest(site)">
-              {{ st.testing ? 'Testing...' : 'Test connection' }}
-            </button>
-            <button class="btn btn-primary btn-sm" type="button" [disabled]="st.drafting" (click)="createTestDraft(site)">
-              {{ st.drafting ? 'Creating...' : 'Create test draft' }}
-            </button>
+            <div class="row-acts">
+              @if (canManage) {
+                <a class="btn btn-sm btn-ghost" [routerLink]="['/sites', site.id, 'edit']">Edit</a>
+                <button class="btn btn-sm btn-ghost" type="button" [disabled]="st.toggling" (click)="setEnabled(site, !site.isEnabled)">
+                  {{ site.isEnabled ? 'Disable' : 'Enable' }}
+                </button>
+              }
+              <button class="btn btn-sm" type="button" [disabled]="st.testing" (click)="runConnectionTest(site)">
+                {{ st.testing ? 'Testing...' : 'Test connection' }}
+              </button>
+              @if (canPublishDraft) {
+                <button class="btn btn-primary btn-sm" type="button" [disabled]="st.drafting || !canDraft(site)"
+                        [title]="canDraft(site) ? '' : 'This site must be enabled and pass its connection test first.'"
+                        (click)="createTestDraft(site)">
+                  {{ st.drafting ? 'Creating...' : 'Create test draft' }}
+                </button>
+              }
+            </div>
           </td>
         </tr>
+        @if (st.actionError; as err) {
+          <tr><td colspan="5"><div class="alert alert-danger"><p style="margin:0">Change was not saved: {{ err }}</p></div></td></tr>
+        }
         @if (st.report; as r) {
           <tr>
             <td colspan="5" style="background:var(--n-050)">
@@ -75,7 +106,12 @@
         }
       } @empty {
         @if (!loadError()) {
-          <tr><td colspan="5" class="empty">No sites configured. Add one under "Sites" in src/Swan.Api/appsettings.json.</td></tr>
+          <tr>
+            <td colspan="5" class="empty">
+              No sites configured.
+              @if (canManage) { <a routerLink="/sites/new">Add the first client site</a>. }
+            </td>
+          </tr>
         }
       }
     </tbody>

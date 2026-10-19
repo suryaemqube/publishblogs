@@ -771,6 +771,90 @@ namespace Swan.Infrastructure.Persistence.Migrations
                     b.ToTable("UserRoles", (string)null);
                 });
 
+            modelBuilder.Entity("Swan.Domain.Sites.ClientSite", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ConnectionStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("LastTestSummary")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastTestedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PostTypeKey")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RestBase")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RestOrigin")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TaxonomiesJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserAgent")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("WriteYoastMeta")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ClientSites", (string)null);
+                });
+
+            modelBuilder.Entity("Swan.Domain.Sites.SiteSecret", b =>
+                {
+                    b.Property<string>("SiteId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProtectedApplicationPassword")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("SiteId");
+
+                    b.ToTable("SiteSecrets", (string)null);
+                });
+
             modelBuilder.Entity("Swan.Domain.Content.ArticleCandidate", b =>
                 {
                     b.HasOne("Swan.Domain.Content.ArticleDocument", null)
@@ -818,6 +902,15 @@ namespace Swan.Infrastructure.Persistence.Migrations
                     b.HasOne("Swan.Domain.Identity.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Swan.Domain.Sites.SiteSecret", b =>
+                {
+                    b.HasOne("Swan.Domain.Sites.ClientSite", null)
+                        .WithOne()
+                        .HasForeignKey("Swan.Domain.Sites.SiteSecret", "SiteId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

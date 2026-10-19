@@ -20,9 +20,35 @@ public sealed class SwanDbContext(DbContextOptions<SwanDbContext> options) : DbC
     public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
     public DbSet<RemoteMediaMapping> RemoteMediaMappings => Set<RemoteMediaMapping>();
     public DbSet<ArticleImage> ArticleImages => Set<ArticleImage>();
+    public DbSet<Swan.Domain.Sites.ClientSite> ClientSites => Set<Swan.Domain.Sites.ClientSite>();
+    public DbSet<Swan.Domain.Sites.SiteSecret> SiteSecrets => Set<Swan.Domain.Sites.SiteSecret>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        b.Entity<Swan.Domain.Sites.ClientSite>(e =>
+        {
+            e.ToTable("ClientSites");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasMaxLength(60);
+            e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            e.Property(x => x.RestOrigin).HasMaxLength(300).IsRequired();
+            e.Property(x => x.PostTypeKey).HasMaxLength(60).IsRequired();
+            e.Property(x => x.RestBase).HasMaxLength(60).IsRequired();
+            e.Property(x => x.Username).HasMaxLength(200).IsRequired();
+            e.Property(x => x.TaxonomiesJson).IsRequired();
+            e.Property(x => x.ConnectionStatus).HasMaxLength(20).IsRequired();
+            e.Property(x => x.LastTestSummary).HasMaxLength(1000);
+        });
+
+        b.Entity<Swan.Domain.Sites.SiteSecret>(e =>
+        {
+            e.ToTable("SiteSecrets");
+            e.HasKey(x => x.SiteId);
+            e.Property(x => x.ProtectedApplicationPassword).IsRequired();
+            e.HasOne<Swan.Domain.Sites.ClientSite>().WithOne().HasForeignKey<Swan.Domain.Sites.SiteSecret>(x => x.SiteId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         b.Entity<User>(e =>
         {
             e.ToTable("Users");
