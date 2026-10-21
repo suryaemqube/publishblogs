@@ -88,6 +88,8 @@ export interface DocumentSummary {
   fileSizeBytes: number;
   candidates: number;
   clientSiteId: string | null;
+  /** Display name of whoever uploaded the file. Null for uploads made before accounts were recorded. */
+  uploadedByName: string | null;
   isHidden: boolean;
   acceptedArticles: number;
 }
@@ -174,6 +176,8 @@ export interface ArticleRecord {
   seoTitle: string | null;
   metaDescription: string | null;
   contentHtml: string;
+  /** Shown as "Uploaded by": whoever accepted this article out of its document. */
+  uploadedByName: string | null;
   createdUtc: string;
   updatedUtc: string;
 }
@@ -200,6 +204,33 @@ export interface DraftSendResult {
   remoteStatus: string;
   editUrl: string | null;
   remoteLink: string | null;
+}
+
+/** A Swan account. Roles are names; permissions are derived from them server-side. */
+export interface UserSummary {
+  id: string;
+  email: string;
+  displayName: string;
+  roles: string[];
+  isActive: boolean;
+  lastLoginUtc: string | null;
+  createdUtc: string;
+}
+
+/** A seeded role and the permission keys it carries. Read-only. */
+export interface RoleSummary {
+  id: number;
+  name: string;
+  description: string;
+  isSystem: boolean;
+  permissions: string[];
+}
+
+export interface CreateUserInput {
+  email: string;
+  displayName: string;
+  password: string;
+  roles: string[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -311,5 +342,18 @@ export class SwanApiService {
 
   createDraft(siteId: string, body: CreateDraftBody): Observable<DraftResult> {
     return this.http.post<DraftResult>(`${SWAN_API_BASE}/sites/${encodeURIComponent(siteId)}/drafts`, body);
+  }
+
+  /** Team. Every call needs the user.manage permission; the server enforces it. */
+  users(): Observable<UserSummary[]> {
+    return this.http.get<UserSummary[]>(`${SWAN_API_BASE}/users`);
+  }
+
+  roles(): Observable<RoleSummary[]> {
+    return this.http.get<RoleSummary[]>(`${SWAN_API_BASE}/roles`);
+  }
+
+  createUser(input: CreateUserInput): Observable<UserSummary> {
+    return this.http.post<UserSummary>(`${SWAN_API_BASE}/users`, input);
   }
 }

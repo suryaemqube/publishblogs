@@ -77,11 +77,26 @@ public static class DocumentEndpoints
                     d.FileSizeBytes,
                     clientSiteId = d.SiteId,
                     isHidden = d.IsHidden,
+                    d.UploadedByUserId,
                     Candidates = db.ArticleCandidates.Count(c => c.DocumentId == d.Id),
                     acceptedArticles = db.Articles.Count(a => a.SourceDocumentId == d.Id),
                 })
                 .ToListAsync(ct);
-            return Results.Ok(rows);
+
+            var uploaders = await UserNamesAsync(db, rows.Select(r => r.UploadedByUserId), ct);
+            return Results.Ok(rows.Select(r => new
+            {
+                r.Id,
+                r.FileName,
+                r.Status,
+                r.UploadedUtc,
+                r.FileSizeBytes,
+                clientSiteId = r.clientSiteId,
+                isHidden = r.isHidden,
+                r.Candidates,
+                r.acceptedArticles,
+                uploadedByName = uploaders.GetValueOrDefault(r.UploadedByUserId),
+            }));
         });
 
         // Hide: reversible, removes the document from the default list. Nothing is deleted.
@@ -202,6 +217,19 @@ public static class DocumentEndpoints
             CreatedUtc = DateTime.UtcNow,
         });
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Display names for a set of user ids, so a list can show who uploaded or accepted something without
+    /// a join per row. Shared by the documents and articles lists. Unknown ids are simply absent.
+    /// </summary>
+    public static async Task<Dictionary<Guid, string>> UserNamesAsync(SwanDbContext db, IEnumerable<Guid> userIds, CancellationToken ct)
+    {
+        var ids = userIds.Distinct().ToList();
+        if (ids.Count == 0) return new Dictionary<Guid, string>();
+        return await db.Users.AsNoTracking()
+            .Where(u => ids.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.DisplayName, ct);
     }
 
     /// <summary>Shape shared by document and article views. Problem is null when the picture can be sent.</summary>

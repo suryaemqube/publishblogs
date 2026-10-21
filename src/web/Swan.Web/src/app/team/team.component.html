@@ -1,0 +1,112 @@
+<div class="phead">
+  <div class="grow">
+    <h1>Team</h1>
+    <p>Who can sign in to Swan. The role decides what each person is allowed to do.</p>
+  </div>
+</div>
+
+@if (loadError(); as err) {
+  <div class="alert alert-danger" style="margin-bottom:20px"><p style="margin:0">Could not load the team: {{ err }}</p></div>
+}
+
+<div class="card">
+  <div class="card-h"><h2>Add a team member</h2></div>
+  <div class="card-b">
+    @if (created(); as c) {
+      <div class="alert alert-ok" style="margin-bottom:18px">
+        <div>
+          <h3>{{ c.displayName }} can now sign in</h3>
+          <p style="margin:4px 0 0">
+            Send <strong>{{ c.email }}</strong> the password you chose. It is stored hashed, so it cannot be
+            looked up again from here.
+          </p>
+        </div>
+      </div>
+    }
+
+    <div class="newgrid">
+      <div class="field">
+        <label for="u-name">Display name</label>
+        <input id="u-name" class="input" maxlength="200" placeholder="e.g. Pradnya Kulkarni"
+               [value]="displayName()" (input)="displayName.set($any($event.target).value)" />
+        <span class="hint">Shown in the top bar, and in the Uploaded by column of documents and articles.</span>
+      </div>
+
+      <div class="field">
+        <label for="u-email">Email</label>
+        <input id="u-email" class="input" type="email" autocomplete="off" placeholder="name@emqube.com"
+               [value]="email()" (input)="email.set($any($event.target).value)" />
+        <span class="hint">The sign-in name. Stored lower-case.</span>
+      </div>
+
+      <div class="field">
+        <label for="u-pass">Password</label>
+        <div class="row-tight">
+          <input id="u-pass" class="input" type="text" autocomplete="new-password" placeholder="At least 12 characters"
+                 [value]="password()" (input)="password.set($any($event.target).value)" />
+          <button class="btn btn-sm" type="button" (click)="generatePassword()">Generate</button>
+        </div>
+        <span class="hint">There is no email delivery yet, so pass it on yourself.</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="field-label">Roles</span>
+      @if (roles().length === 0) {
+        <p class="hint">No roles are available.</p>
+      } @else {
+        <div class="chips">
+          @for (r of roles(); track r.id) {
+            <label class="chip-check" [class.on]="selectedRoles().includes(r.name)"
+                   [title]="r.description + (r.permissions.length > 0 ? ' — ' + r.permissions.join(', ') : '')">
+              <input type="checkbox" [checked]="selectedRoles().includes(r.name)"
+                     (change)="toggleRole(r.name, $any($event.target).checked)" />
+              {{ r.name }}
+            </label>
+          }
+        </div>
+        @if (selectedRoles().length > 0) {
+          <span class="hint">{{ selectedDescription() }}</span>
+        }
+      }
+    </div>
+
+    @if (formError(); as err) {
+      <div class="alert alert-danger" style="margin-bottom:14px"><p style="margin:0">{{ err }}</p></div>
+    }
+
+    <div class="form-actions">
+      <button class="btn btn-primary" type="button" [disabled]="!canSave()" (click)="save()">
+        {{ saving() ? 'Adding...' : 'Add team member' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-h"><h2>People ({{ users().length }})</h2></div>
+  <table class="tbl team-tbl">
+    <thead>
+      <tr><th>Name</th><th>Email</th><th>Roles</th><th>Last sign-in</th><th class="right">Added</th></tr>
+    </thead>
+    <tbody>
+      @for (u of users(); track u.id) {
+        <tr>
+          <td class="strong">{{ u.displayName }}
+            @if (!u.isActive) { <span class="chip chip-neutral small-chip">Inactive</span> }
+          </td>
+          <td class="muted">{{ u.email }}</td>
+          <td>
+            @for (role of u.roles; track role) { <span class="chip chip-neutral">{{ role }}</span> }
+          </td>
+          <td class="muted nowrap">{{ u.lastLoginUtc ? (u.lastLoginUtc | date: 'd MMM y, HH:mm') : 'Never' }}</td>
+          <td class="right muted nowrap">{{ u.createdUtc | date: 'd MMM y' }}</td>
+        </tr>
+      } @empty {
+        @if (!loadError()) {
+          <tr><td colspan="5" class="empty">No accounts yet.</td></tr>
+        }
+      }
+    </tbody>
+  </table>
+</div>

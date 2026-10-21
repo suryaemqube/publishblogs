@@ -1,0 +1,81 @@
+/* Team: create form grid, role chips and the people table. */
+
+.newgrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px 18px;
+  margin-bottom: 18px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.newgrid .field {
+  margin: 0;
+}
+
+.field label,
+.field-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.chip-check.on {
+  border-color: var(--text-muted);
+  background: var(--n-050);
+  font-weight: 600;
+}
+
+.chip-check input {
+  margin: 0;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.team-tbl .small-chip {
+  margin-left: 6px;
+  font-size: 11px;
+}
+
+.team-tbl td .chip + .chip {
+  margin-left: 6px;
+}
+
+@media (max-width: 860px) {
+  .newgrid {
+    grid-template-columns: 1fr;
+  }
+}

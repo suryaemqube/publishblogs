@@ -12,7 +12,7 @@
 <div class="card">
   <table class="tbl">
     <thead>
-      <tr><th>Title</th><th>Status</th><th>SEO title</th><th>Created</th><th></th></tr>
+      <tr><th>Title</th><th>Client</th><th>Uploaded by</th><th>Status</th><th>SEO title</th><th>Created</th><th></th></tr>
     </thead>
     <tbody>
       @for (a of articles(); track a.id) {
@@ -20,6 +20,8 @@
           <td class="strong">{{ a.title }}
             @if (a.isUnverified) { <span class="chip chip-warn" style="margin-left:6px">unverified</span> }
           </td>
+          <td class="muted">{{ siteName(a.clientSiteId) }}</td>
+          <td class="muted">{{ a.uploadedByName ?? '-' }}</td>
           <td><span class="chip chip-neutral">{{ a.status }}</span></td>
           <td class="muted">{{ a.seoTitle ?? '-' }}</td>
           <td class="muted">{{ a.createdUtc | date: 'd MMM y, HH:mm' }}</td>
@@ -27,7 +29,7 @@
         </tr>
       } @empty {
         @if (!error()) {
-          <tr><td colspan="5" class="empty">No accepted articles yet. Accept a proposed article from a document.</td></tr>
+          <tr><td colspan="7" class="empty">No accepted articles yet. Accept a proposed article from a document.</td></tr>
         }
       }
     </tbody>

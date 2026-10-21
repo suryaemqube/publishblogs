@@ -76,8 +76,12 @@ public static class ArticleEndpoints
                 : Results.File(image.Value.Bytes, image.Value.Media.MimeType);
         });
 
-        group.MapGet("/", async (ArticleService articles, CancellationToken ct) =>
-            Results.Ok((await articles.ListAsync(ct)).Select(ToDto)));
+        group.MapGet("/", async (ArticleService articles, SwanDbContext db, CancellationToken ct) =>
+        {
+            var list = await articles.ListAsync(ct);
+            var accepters = await Swan.Api.Documents.DocumentEndpoints.UserNamesAsync(db, list.Select(a => a.CreatedByUserId), ct);
+            return Results.Ok(list.Select(a => ToDto(a, accepters.GetValueOrDefault(a.CreatedByUserId))));
+        });
 
         group.MapGet("/{id:guid}", async (Guid id, ArticleService articles, CancellationToken ct) =>
         {
@@ -181,7 +185,7 @@ public static class ArticleEndpoints
         }
     }
 
-    private static object ToDto(Article a) => new
+    private static object ToDto(Article a, string? uploadedByName = null) => new
     {
         id = a.Id,
         title = a.Title,
@@ -196,6 +200,8 @@ public static class ArticleEndpoints
         metaDescription = a.MetaDescription,
         contentHtml = a.ContentHtml,
         featuredImage = a.FeaturedMediaId is null ? null : new { mediaId = a.FeaturedMediaId, altText = a.FeaturedAltText },
+        // Shown as "Uploaded by": the person who accepted this article from its document. Null in views that do not resolve names.
+        uploadedByName,
         createdUtc = a.CreatedUtc,
         updatedUtc = a.UpdatedUtc,
     };

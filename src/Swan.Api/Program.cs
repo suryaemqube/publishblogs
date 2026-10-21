@@ -13,6 +13,7 @@ using Swan.Api.Articles;
 using Swan.Infrastructure.Content;
 using Swan.Infrastructure.Storage;
 using Swan.Api.Sites;
+using Swan.Api.Users;
 using Swan.Domain.Identity;
 using Swan.Infrastructure.Auth;
 using Swan.Infrastructure.Persistence;
@@ -56,6 +57,7 @@ builder.Services.AddScoped<SiteStore>();
 builder.Services.AddSingleton(authOptions);
 builder.Services.AddDbContext<SwanDbContext>(o => o.UseSqlite(dbPath));
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<UserAdmin>();
 builder.Services.AddSingleton(new LocalFileStore(storageRoot));
 builder.Services.AddScoped<DocumentIngestion>();
 builder.Services.AddScoped<ArticleService>();
@@ -172,6 +174,8 @@ app.MapSiteEndpoints();
 
 app.MapDocumentEndpoints();
 app.MapArticleEndpoints();
+app.MapUserEndpoints();
+app.MapRoleEndpoints();
 
 // Client-side routes (for example /sites/new) serve index.html, but an unknown /api path must still 404
 // rather than returning the HTML shell. Only registered when the client has actually been built into wwwroot.

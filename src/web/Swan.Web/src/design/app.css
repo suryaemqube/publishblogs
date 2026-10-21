@@ -64,8 +64,6 @@ code, .mono { font-family: var(--font-mono); font-size: .92em; }
 .nav a svg { width: 15px; height: 15px; flex: none; opacity: .85; }
 .nav-badge { margin-left: auto; background: var(--brand-green); color: var(--white); font-size: 10px;
              font-weight: 700; padding: 1px 6px; border-radius: var(--r-pill); }
-.nav-foot { margin-top: auto; padding: var(--s-3) var(--s-4); border-top: 1px solid rgba(255,255,255,.1);
-            font-size: var(--fs-xs); color: rgba(255,255,255,.45); }
 
 /* top bar + context bar */
 .topbar {
@@ -73,20 +71,6 @@ code, .mono { font-family: var(--font-mono); font-size: .92em; }
   display: flex; align-items: center; gap: var(--s-4); padding: 0 var(--s-6);
   position: sticky; top: 0; z-index: 20;
 }
-.search { position: relative; flex: 1 1 auto; max-width: 460px; }
-.search input {
-  width: 100%; padding: 7px 10px 7px 32px; font: inherit; font-size: var(--fs-sm);
-  border: 1px solid var(--border); border-radius: var(--r-md); background: var(--n-050);
-  color: var(--text);
-}
-.search input:focus { outline: 2px solid var(--brand-green-ring); outline-offset: -1px;
-                      border-color: var(--brand-green); background: var(--white); }
-.search svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
-              width: 15px; height: 15px; color: var(--n-400); }
-.search kbd { position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-              font: 11px var(--font-mono); color: var(--n-400); border: 1px solid var(--border);
-              border-radius: 3px; padding: 0 4px; background: var(--white); }
-
 .ctxbar {
   height: var(--ctxbar-h); background: var(--surface-alt); border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: var(--s-3); padding: 0 var(--s-6);
@@ -225,25 +209,16 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
 .empty svg { width: 34px; height: 34px; color: var(--n-300); margin-bottom: var(--s-3); }
 
 /* ---------------------------------------------------------------- login */
-.auth { min-height: 100vh; background: var(--ink); display: grid;
-        grid-template-columns: 1.05fr .95fr; }
-.auth-side { padding: var(--s-12) var(--s-10); display: flex; flex-direction: column;
-             color: rgba(255,255,255,.8); background: var(--ink); }
-.auth-side img { height: 38px; width: auto; margin-bottom: auto; }
-.auth-side h2 { color: var(--white); font-size: 30px; font-weight: 300; margin: var(--s-10) 0 var(--s-3);
-                line-height: 1.25; }
-.auth-side h2 em { font-style: normal; color: var(--brand-green-tint); }
-.auth-side ul { list-style: none; padding: 0; margin: var(--s-6) 0 0; }
-.auth-side li { display: flex; gap: 10px; align-items: flex-start; margin-bottom: var(--s-3);
-                font-size: var(--fs-sm); color: rgba(255,255,255,.68); }
-.auth-side li svg { width: 15px; height: 15px; color: var(--brand-green); flex: none; margin-top: 3px; }
-.auth-foot { margin-top: var(--s-10); font-size: var(--fs-xs); color: rgba(255,255,255,.34); }
-
+/* Sign-in is the card alone: there is no marketing panel beside it. */
+.auth { min-height: 100vh; display: grid; }
 .auth-card { background: var(--white); display: flex; align-items: center; justify-content: center;
              padding: var(--s-10) var(--s-8); }
 .auth-form { width: 100%; max-width: 356px; }
-.auth-form h1 { font-size: var(--fs-xl); margin-bottom: var(--s-1); }
-.auth-form > p { color: var(--text-muted); font-size: var(--fs-sm); margin-bottom: var(--s-5); }
+.auth-logo { height: 55px; width: auto; margin-bottom: var(--s-6); }
+/* 18px rather than --fs-xl (26px): "Sign in to emQube Content Publisher" has to hold one line in the
+   356px form column, and it still has to when Google Fonts is unreachable and Inter falls back to
+   Arial, which is a few percent wider. */
+.auth-form h1 { font-size: 18px; margin-bottom: var(--s-6); }
 .divider { display: flex; align-items: center; gap: var(--s-3); margin: var(--s-5) 0;
            font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase;
            letter-spacing: .07em; }
@@ -376,8 +351,6 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
 .footnote code { background: var(--n-100); padding: 1px 4px; border-radius: 3px; }
 
 @media (max-width: 1000px) {
-  .auth { grid-template-columns: 1fr; }
-  .auth-side { display: none; }
   .split, .grid-2, .grid-3 { grid-template-columns: 1fr; }
   .app { grid-template-columns: 1fr; }
   .nav { display: none; }

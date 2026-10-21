@@ -102,13 +102,14 @@
 
   <table class="tbl docs-tbl">
     <thead>
-      <tr><th>File</th><th>Client</th><th>Uploaded</th><th>Status</th><th class="num">Articles</th><th class="right">Size</th><th class="right">Actions</th></tr>
+      <tr><th>File</th><th>Client</th><th>Uploaded by</th><th>Uploaded</th><th>Status</th><th class="num">Articles</th><th class="right">Size</th><th class="right">Actions</th></tr>
     </thead>
     <tbody>
       @for (d of visibleDocs(); track d.id) {
         <tr>
           <td class="strong file-cell">{{ d.fileName }}</td>
           <td class="muted">{{ siteName(d.clientSiteId) }}</td>
+          <td class="muted">{{ d.uploadedByName ?? '-' }}</td>
           <td class="muted nowrap">{{ d.uploadedUtc | date: 'd MMM y, HH:mm' }}</td>
           <td><span class="chip {{ statusLabel(d.status).cls }}"><span class="dot"></span>{{ statusLabel(d.status).text }}</span></td>
           <td class="num">{{ d.candidates }}</td>
@@ -120,7 +121,7 @@
         </tr>
       } @empty {
         @if (!loadError()) {
-          <tr><td colspan="7" class="empty">No documents yet. Upload one above.</td></tr>
+          <tr><td colspan="8" class="empty">No documents yet. Upload one above.</td></tr>
         }
       }
 
@@ -129,6 +130,7 @@
           <tr class="is-hidden">
             <td class="file-cell">{{ d.fileName }} <span class="chip chip-neutral small-chip">Hidden</span></td>
             <td class="muted">{{ siteName(d.clientSiteId) }}</td>
+            <td class="muted">{{ d.uploadedByName ?? '-' }}</td>
             <td class="muted nowrap">{{ d.uploadedUtc | date: 'd MMM y, HH:mm' }}</td>
             <td><span class="chip {{ statusLabel(d.status).cls }}"><span class="dot"></span>{{ statusLabel(d.status).text }}</span></td>
             <td class="num">{{ d.candidates }}</td>
@@ -144,6 +146,17 @@
       }
     </tbody>
   </table>
+</div>
+
+<div class="card journey">
+  <div class="card-h"><h2>The one writer journey, start to finish</h2></div>
+  <div class="card-b">
+    <ol class="journey-steps">
+      <li><a routerLink="/documents">Upload</a> &rarr; the real file is rejected, with the reasons</li>
+      <li><a routerLink="/documents">Re-upload corrected</a> &rarr; review the split, then accept the articles</li>
+      <li><a routerLink="/articles">Edit structure</a> &rarr; add SEO and a featured image</li>
+    </ol>
+  </div>
 </div>
 
 
