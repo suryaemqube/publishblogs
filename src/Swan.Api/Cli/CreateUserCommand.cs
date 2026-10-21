@@ -29,7 +29,7 @@ public static class CreateUserCommand
         if (email is null || name is null || roles.Count == 0)
         {
             Console.Error.WriteLine("Usage: create-user --email <addr> --name <display name> --role <role> [--role <role>...]");
-            Console.Error.WriteLine($"Roles: {string.Join(", ", new[] { RoleNames.Writer, RoleNames.Reviewer, RoleNames.Publisher, RoleNames.ClientManager, RoleNames.Administrator })}");
+            Console.Error.WriteLine($"Roles: {string.Join(", ", new[] { RoleNames.Publisher, RoleNames.Administrator })}");
             return 2;
         }
 

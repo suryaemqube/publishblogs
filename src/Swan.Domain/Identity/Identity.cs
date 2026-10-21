@@ -21,13 +21,15 @@ public static class PermissionKeys
     ];
 }
 
-/// <summary>Default roles from PLAN-v2 §11.1.</summary>
+/// <summary>
+/// The built-in roles. PLAN-v2 §11.1 split the writing journey across Writer, Reviewer and Publisher, but in
+/// practice one person runs the whole journey, so those three are a single <see cref="Publisher"/> role;
+/// Client Manager folded into <see cref="Administrator"/>. Note the consequence: Publisher carries
+/// <see cref="PermissionKeys.ArticleReview"/>, so whoever writes an article may also approve it.
+/// </summary>
 public static class RoleNames
 {
-    public const string Writer = "Writer";
-    public const string Reviewer = "Reviewer";
     public const string Publisher = "Publisher";
-    public const string ClientManager = "Client Manager";
     public const string Administrator = "Administrator";
 }
 

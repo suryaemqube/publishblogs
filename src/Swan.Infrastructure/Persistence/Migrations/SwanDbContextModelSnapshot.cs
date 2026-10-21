@@ -557,36 +557,15 @@ namespace Swan.Infrastructure.Persistence.Migrations
                     b.HasData(
                         new
                         {
-                            Id = 1,
-                            Description = "Uploads documents, edits articles, creates drafts.",
-                            IsSystem = true,
-                            Name = "Writer"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            Description = "Reviews and approves articles.",
-                            IsSystem = true,
-                            Name = "Reviewer"
-                        },
-                        new
-                        {
                             Id = 3,
-                            Description = "Publishes approved articles.",
+                            Description = "Uploads documents, reviews them and publishes the drafts.",
                             IsSystem = true,
                             Name = "Publisher"
                         },
                         new
                         {
-                            Id = 4,
-                            Description = "Configures client sites.",
-                            IsSystem = true,
-                            Name = "Client Manager"
-                        },
-                        new
-                        {
                             Id = 5,
-                            Description = "All permissions, including user management.",
+                            Description = "Everything, including client sites and team management.",
                             IsSystem = true,
                             Name = "Administrator"
                         });
@@ -607,33 +586,18 @@ namespace Swan.Infrastructure.Persistence.Migrations
                     b.HasData(
                         new
                         {
-                            RoleId = 1,
+                            RoleId = 3,
                             PermissionId = 1
                         },
                         new
                         {
-                            RoleId = 1,
+                            RoleId = 3,
                             PermissionId = 2
                         },
                         new
                         {
-                            RoleId = 1,
-                            PermissionId = 6
-                        },
-                        new
-                        {
-                            RoleId = 1,
-                            PermissionId = 7
-                        },
-                        new
-                        {
-                            RoleId = 2,
+                            RoleId = 3,
                             PermissionId = 3
-                        },
-                        new
-                        {
-                            RoleId = 2,
-                            PermissionId = 7
                         },
                         new
                         {
@@ -649,16 +613,6 @@ namespace Swan.Infrastructure.Persistence.Migrations
                         {
                             RoleId = 3,
                             PermissionId = 7
-                        },
-                        new
-                        {
-                            RoleId = 4,
-                            PermissionId = 7
-                        },
-                        new
-                        {
-                            RoleId = 4,
-                            PermissionId = 8
                         },
                         new
                         {

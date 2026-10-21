@@ -25,7 +25,7 @@ public sealed class AuthTests : IAsyncLifetime
         await _conn.OpenAsync();
         _db = new SwanDbContext(new DbContextOptionsBuilder<SwanDbContext>().UseSqlite(_conn).Options);
         await _db.Database.EnsureCreatedAsync();
-        await new UserAdmin(_db, _clock).CreateUserAsync("writer@example.com", "Writer", Password, [RoleNames.Writer]);
+        await new UserAdmin(_db, _clock).CreateUserAsync("writer@example.com", "Writer", Password, [RoleNames.Publisher]);
     }
 
     public async Task DisposeAsync()
@@ -152,7 +152,7 @@ public sealed class AuthTests : IAsyncLifetime
     {
         var admin = new UserAdmin(_db, _clock);
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            admin.CreateUserAsync("WRITER@example.com", "Dup", Password, [RoleNames.Writer]));
+            admin.CreateUserAsync("WRITER@example.com", "Dup", Password, [RoleNames.Publisher]));
         await Assert.ThrowsAsync<ArgumentException>(() =>
             admin.CreateUserAsync("new@example.com", "New", Password, ["Superuser"]));
     }
@@ -162,7 +162,7 @@ public sealed class AuthTests : IAsyncLifetime
     {
         var admin = new UserAdmin(_db, _clock);
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            admin.CreateUserAsync("short@example.com", "Short", "short", [RoleNames.Writer]));
+            admin.CreateUserAsync("short@example.com", "Short", "short", [RoleNames.Publisher]));
     }
 
     private sealed class FakeClock(Func<DateTimeOffset> now) : TimeProvider

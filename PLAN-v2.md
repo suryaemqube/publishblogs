@@ -1377,7 +1377,12 @@ appear on the dashboard and in the Failed Publications report until resolved.
   `article.publish` and any administrative role
 - Short-lived access tokens, rotating refresh tokens, revocation on password change
 - Permissions are capability keys checked in one place (policy/middleware), never scattered
-- Default roles: Writer, Reviewer, Publisher, Client Manager, Administrator
+- Default roles: **Publisher** and **Administrator**. This started as five roles — Writer, Reviewer and
+  Publisher for the writing journey, plus Client Manager — but in practice one person runs the whole
+  journey, so Publisher now covers writing, reviewing and publishing, and Client Manager folded into
+  Administrator. The capability keys are unchanged and still checked in one place, so a narrower role
+  (for example review-without-publish) is a seed change, not a schema change. Note the consequence:
+  Publisher carries `article.review`, so whoever writes an article may also approve it.
 
 ### 11.2 Credentials
 

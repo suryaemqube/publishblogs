@@ -197,13 +197,14 @@ public sealed class SwanDbContext(DbContextOptions<SwanDbContext> options) : DbC
 /// <summary>Built-in roles, permissions and their mapping. Seeded by migrations, so it is identical everywhere.</summary>
 public static class Seed
 {
+    /// <summary>
+    /// Ids 3 and 5 are the original Publisher and Administrator rows, kept so that accounts already carrying
+    /// them are untouched by the migration that removes the other three roles.
+    /// </summary>
     public static readonly Role[] Roles =
     [
-        new() { Id = 1, Name = RoleNames.Writer, Description = "Uploads documents, edits articles, creates drafts.", IsSystem = true },
-        new() { Id = 2, Name = RoleNames.Reviewer, Description = "Reviews and approves articles.", IsSystem = true },
-        new() { Id = 3, Name = RoleNames.Publisher, Description = "Publishes approved articles.", IsSystem = true },
-        new() { Id = 4, Name = RoleNames.ClientManager, Description = "Configures client sites.", IsSystem = true },
-        new() { Id = 5, Name = RoleNames.Administrator, Description = "All permissions, including user management.", IsSystem = true },
+        new() { Id = 3, Name = RoleNames.Publisher, Description = "Uploads documents, reviews them and publishes the drafts.", IsSystem = true },
+        new() { Id = 5, Name = RoleNames.Administrator, Description = "Everything, including client sites and team management.", IsSystem = true },
     ];
 
     public static readonly Permission[] Permissions = PermissionKeys.All
@@ -212,10 +213,12 @@ public static class Seed
 
     private static readonly Dictionary<int, string[]> Grants = new()
     {
-        [1] = [PermissionKeys.ArticleWrite, PermissionKeys.ArticleSubmit, PermissionKeys.PublishingDraft, PermissionKeys.SiteRead],
-        [2] = [PermissionKeys.ArticleReview, PermissionKeys.SiteRead],
-        [3] = [PermissionKeys.ArticlePublish, PermissionKeys.PublishingDraft, PermissionKeys.SiteRead],
-        [4] = [PermissionKeys.SiteRead, PermissionKeys.SiteManage],
+        // Publisher is the old Writer + Reviewer + Publisher: the whole journey from upload to draft.
+        [3] =
+        [
+            PermissionKeys.ArticleWrite, PermissionKeys.ArticleSubmit, PermissionKeys.ArticleReview,
+            PermissionKeys.ArticlePublish, PermissionKeys.PublishingDraft, PermissionKeys.SiteRead,
+        ],
         [5] = [.. PermissionKeys.All],
     };
 
