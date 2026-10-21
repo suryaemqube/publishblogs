@@ -1,0 +1,6 @@
+# Shell scripts must keep LF line endings. /usr/bin/env reads the shebang
+# literally, so a CRLF shebang fails with: bash\r: No such file or directory.
+#
+# core.autocrlf=true with no .gitattributes re-encoded every text file to CRLF
+# on export, which is what broke deploy/deploy.sh on the first scp-based deploy.
+*.sh text eol=lf
